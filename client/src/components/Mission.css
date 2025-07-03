@@ -125,7 +125,7 @@
     padding: 20px;
     border-radius: 10px;
     text-align: center;
-    margin: 30px Auto 30%; /* changed from 35% to fixed 50px bottom margin */
+    margin: 30px Auto 25%; /* changed from 35% to fixed 50px bottom margin */
     width: 72%;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   }
