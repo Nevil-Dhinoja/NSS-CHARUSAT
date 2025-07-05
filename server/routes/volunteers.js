@@ -76,7 +76,14 @@ function insertVolunteers(volunteers, req, res, filePath) {
   db.query(sql, [values], (err) => {
     fs.unlinkSync(filePath);
     if (err) {
-      return res.status(500).json({ error: 'Database error', details: err });
+      // Handle specific database errors
+      if (err.code === 'ER_DUP_ENTRY') {
+        return res.status(409).json({ 
+          error: 'Duplicate volunteer entries found', 
+          details: 'Some volunteers in the file already exist in the database (duplicate Student IDs or emails)' 
+        });
+      }
+      return res.status(500).json({ error: 'Database error', details: err.message });
     }
     res.status(200).json({ message: 'Volunteers uploaded successfully' });
   });
@@ -90,17 +97,73 @@ router.get('/all', verifyToken, (req, res) => {
   });
 });
 
+// Get volunteers for CE department (Program Officers only)
+router.get('/department/:department', verifyToken, (req, res) => {
+  // Check if user is Program Officer
+  if (req.user.role !== 'po') {
+    return res.status(403).json({ error: 'Access denied. Only Program Officers can view volunteers.' });
+  }
+
+  const sql = 'SELECT * FROM volunteers WHERE department = "CE" ORDER BY joined_on DESC';
+  
+  db.query(sql, (err, results) => {
+    if (err) return res.status(500).json({ error: 'Database error', details: err });
+    res.json(results);
+  });
+});
+
 router.put('/edit/:id', verifyToken, (req, res) => {
   const { name, student_id, department, year, email, contact } = req.body;
   const { id } = req.params;
+  
+  // First check if the volunteer exists
+  db.query('SELECT * FROM volunteers WHERE id = ?', [id], (err, results) => {
+    if (err) return res.status(500).json({ error: 'Database error', details: err.message });
+    if (results.length === 0) return res.status(404).json({ error: 'Volunteer not found' });
+    
+    // Check for duplicate student_id (excluding current volunteer)
+    db.query('SELECT * FROM volunteers WHERE student_id = ? AND id != ?', [student_id, id], (err, duplicates) => {
+      if (err) return res.status(500).json({ error: 'Database error', details: err.message });
+      if (duplicates.length > 0) {
+        return res.status(409).json({ error: 'Student ID already exists', details: `A volunteer with Student ID "${student_id}" already exists` });
+      }
+      
+      // Update the volunteer
   const sql = `
     UPDATE volunteers
     SET name = ?, student_id = ?, department = ?, year = ?, email = ?, contact = ?
     WHERE id = ?
   `;
   db.query(sql, [name, student_id, department, year, email, contact, id], (err, result) => {
-    if (err) return res.status(500).json({ error: 'Database error', details: err });
+        if (err) {
+          if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ error: 'Duplicate entry', details: 'A volunteer with this information already exists' });
+          }
+          return res.status(500).json({ error: 'Database error', details: err.message });
+        }
     res.json({ message: 'Volunteer updated successfully' });
+      });
+    });
+  });
+});
+
+// Delete volunteer
+router.delete('/delete/:id', verifyToken, (req, res) => {
+  const { id } = req.params;
+  
+  // First check if the volunteer exists
+  db.query('SELECT * FROM volunteers WHERE id = ?', [id], (err, results) => {
+    if (err) return res.status(500).json({ error: 'Database error', details: err.message });
+    if (results.length === 0) return res.status(404).json({ error: 'Volunteer not found' });
+    
+    // Delete the volunteer
+    const sql = 'DELETE FROM volunteers WHERE id = ?';
+    db.query(sql, [id], (err, result) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error', details: err.message });
+      }
+      res.json({ message: 'Volunteer deleted successfully' });
+    });
   });
 });
 

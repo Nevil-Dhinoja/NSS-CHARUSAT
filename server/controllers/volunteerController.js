@@ -12,10 +12,10 @@ exports.addVolunteer = (req, res) => {
   
     const sql = `
       INSERT INTO volunteers 
-        (name, student_id, department, year, contact, joined_on, added_by) 
-      VALUES (?, ?, ?, ?, ?, CURDATE(), ?)`;
+        (name, student_id, department, year, email, contact, joined_on, added_by) 
+      VALUES (?, ?, ?, ?, ?, ?, CURDATE(), ?)`;
   
-    db.query(sql, [name, studentId, department, year, phone, req.user.id], (err) => {
+    db.query(sql, [name, studentId, department, year, email, phone, req.user.id], (err) => {
       if (err) {
         if (err.code === 'ER_DUP_ENTRY') {
           return res.status(409).json({ error: 'Volunteer with this Student ID already exists' });

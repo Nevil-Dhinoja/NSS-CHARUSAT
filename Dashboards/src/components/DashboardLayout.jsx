@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   SidebarProvider,
   SidebarTrigger
@@ -15,15 +15,77 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
-import { Bell, LogOut, Settings, User } from "lucide-react";
+import { Bell, LogOut, Settings, User, Clock } from "lucide-react";
 
 const DashboardLayout = ({ children, userRole, userName, userEmail }) => {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState(2);
+  const [sessionTimeLeft, setSessionTimeLeft] = useState(30 * 60); // 30 minutes in seconds
+
+  useEffect(() => {
+    // Get login time from localStorage or set current time
+    const loginTime = localStorage.getItem("nssLoginTime");
+    if (!loginTime) {
+      localStorage.setItem("nssLoginTime", Date.now().toString());
+    }
+
+    const timer = setInterval(() => {
+      const loginTimeStamp = parseInt(localStorage.getItem("nssLoginTime") || Date.now().toString());
+      const elapsed = Math.floor((Date.now() - loginTimeStamp) / 1000);
+      const remaining = Math.max(0, 30 * 60 - elapsed); // 30 minutes - elapsed time
+      
+      setSessionTimeLeft(remaining);
+      
+      if (remaining <= 0) {
+        // Session expired
+        localStorage.clear();
+        navigate("/login");
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [navigate]);
+
+  // Initialize session time on component mount
+  useEffect(() => {
+    const loginTime = localStorage.getItem("nssLoginTime");
+    if (loginTime) {
+      const loginTimeStamp = parseInt(loginTime);
+      const elapsed = Math.floor((Date.now() - loginTimeStamp) / 1000);
+      const remaining = Math.max(0, 30 * 60 - elapsed);
+      setSessionTimeLeft(remaining);
+    }
+  }, []);
+
+  // Check token expiry on component mount
+  useEffect(() => {
+    const token = localStorage.getItem("nssUserToken");
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        const isExpired = payload.exp * 1000 < Date.now();
+        
+        if (isExpired) {
+          localStorage.clear();
+          navigate("/login");
+        }
+      } catch (error) {
+        localStorage.clear();
+        navigate("/login");
+      }
+    }
+  }, [navigate]);
+
+  const formatTime = (seconds) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
 
   const handleLogout = () => {
     // Clear user session
     localStorage.removeItem("nssUserToken");
+    localStorage.removeItem("nssLoginTime");
     navigate("/login");
   };
 
@@ -38,6 +100,12 @@ const DashboardLayout = ({ children, userRole, userName, userEmail }) => {
               <h1 className="text-xl font-medium text-nss-primary ml-4">NSS Connect Dashboard</h1>
             </div>
             <div className="flex items-center space-x-4">
+              {/* Session Timer */}
+              <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800" style={{ color: "#1e40af" }}>
+                <Clock className="h-3 w-3 mr-1" style={{ color: "#1e40af" }} />
+                Session: {formatTime(sessionTimeLeft)}
+              </div>
+
               <Button variant="outline" size="icon" className="relative">
                 <Bell className="h-5 w-5" />
                 {notifications > 0 && (
@@ -64,13 +132,16 @@ const DashboardLayout = ({ children, userRole, userName, userEmail }) => {
                     <div>
                       <p className="font-medium">{userName}</p>
                       <p className="text-xs text-muted-foreground">{userEmail}</p>
-                      <p className="text-xs mt-1 bg-nss-accent text-nss-primary px-2 py-0.5 rounded inline-block">
+                      <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mt-2" style={{ 
+                        color: "#1e40af",
+                        backgroundColor: "#dbeafe"
+                      }}>
                         {userRole === "pc"
                           ? "Program Coordinator"
                           : userRole === "po"
                             ? "Program Officer"
                             : "Student Coordinator"}
-                      </p>
+                      </div>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />

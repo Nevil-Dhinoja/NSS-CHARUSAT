@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Upload, Download, Filter, Users, UserPlus, Mail, Phone } from "lucide-react";
+import { Search, Upload, Download, Filter, Users, UserPlus, Mail, Phone, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -21,12 +21,23 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { 
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger
+  DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -89,14 +100,35 @@ const Volunteers = () => {
     setLoadingVolunteers(true);
     const token = localStorage.getItem("nssUserToken");
     try {
-      const response = await fetch("http://localhost:5000/api/volunteers/all", {
+      // If user is Program Officer, fetch volunteers from CE department
+      // Otherwise, fetch all volunteers (for Program Coordinator)
+      const endpoint = userRole === "po" 
+        ? "http://localhost:5000/api/volunteers/department/CE"
+        : "http://localhost:5000/api/volunteers/all";
+
+      const response = await fetch(endpoint, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
       const data = await response.json();
-      setVolunteers(data);
+      if (response.ok) {
+        setVolunteers(data);
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to fetch volunteers",
+          variant: "destructive"
+        });
+        setVolunteers([]);
+      }
     } catch (error) {
+      console.error("Fetch error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch volunteers",
+        variant: "destructive"
+      });
       setVolunteers([]);
     } finally {
       setLoadingVolunteers(false);
@@ -254,6 +286,36 @@ const Volunteers = () => {
     }
   };
 
+  const handleDeleteVolunteer = async (volunteerId, volunteerName) => {
+    const token = localStorage.getItem("nssUserToken");
+    try {
+      const response = await fetch(`http://localhost:5000/api/volunteers/delete/${volunteerId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        toast({
+          title: "Volunteer Deleted",
+          description: `${volunteerName} has been successfully deleted.`,
+        });
+        fetchVolunteers(); // Refresh the list
+      } else {
+        throw new Error(data.error || "Failed to delete volunteer");
+      }
+    } catch (error) {
+      toast({
+        title: "Delete Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   if (!userRole || !userName) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -404,11 +466,10 @@ const Volunteers = () => {
             <div className="flex flex-col md:flex-row md:items-center justify-between pb-4 gap-4">
               <div className="flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-2">
                 <div>
-                  <Label htmlFor="year-filter">Filter by Academic Year</Label>
                   <Input
                     id="year-filter"
                     type="text"
-                    placeholder="Enter year (e.g. 2023)"
+                    placeholder="Enter year"
                     value={selectedYear}
                     onChange={e => setSelectedYear(e.target.value)}
                     className="w-[140px]"
@@ -452,7 +513,7 @@ const Volunteers = () => {
                 <TableBody>
                   {loadingVolunteers ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-4">
+                      <TableCell colSpan={7} className="text-center py-4">
                         Loading volunteers...
                       </TableCell>
                     </TableRow>
@@ -481,13 +542,37 @@ const Volunteers = () => {
                             <Button variant="outline" size="sm" onClick={() => handleEditVolunteer(volunteer)}>
                               Edit
                             </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="outline" size="sm" className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-700">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Volunteer</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to delete <strong>{volunteer.name}</strong>? This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter className="!flex !flex-row !justify-end !gap-2 !space-x-2">
+                                  <AlertDialogCancel className="!mt-0">Cancel</AlertDialogCancel>
+                                  <AlertDialogAction 
+                                    onClick={() => handleDeleteVolunteer(volunteer.id, volunteer.name)}
+                                    className="bg-red-600 hover:bg-red-700 border border-red-600 !mt-0"
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </div>
                         </TableCell>
                       </TableRow>
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-4">
+                      <TableCell colSpan={7} className="text-center py-4">
                         No volunteers found matching your criteria.
                       </TableCell>
                     </TableRow>
@@ -518,7 +603,9 @@ const Volunteers = () => {
                   <Input
                     id="edit-student-id"
                     value={editVolunteer.student_id}
-                    onChange={e => setEditVolunteer({ ...editVolunteer, student_id: e.target.value })}
+                    readOnly
+                    disabled
+                    className="bg-gray-100"
                   />
                 </div>
                 <div className="space-y-2">
@@ -526,7 +613,9 @@ const Volunteers = () => {
                   <Input
                     id="edit-department"
                     value={editVolunteer.department}
-                    onChange={e => setEditVolunteer({ ...editVolunteer, department: e.target.value })}
+                    readOnly
+                    disabled
+                    className="bg-gray-100"
                   />
                 </div>
                 <div className="space-y-2">
@@ -534,7 +623,9 @@ const Volunteers = () => {
                   <Input
                     id="edit-year"
                     value={editVolunteer.year}
-                    onChange={e => setEditVolunteer({ ...editVolunteer, year: e.target.value })}
+                    readOnly
+                    disabled
+                    className="bg-gray-100"
                   />
                 </div>
                 <div className="space-y-2">
@@ -550,7 +641,7 @@ const Volunteers = () => {
                   <Input
                     id="edit-phone"
                     value={editVolunteer.contact}
-                    onChange={e => setEditVolunteer({ ...editVolunteer, phone: e.target.value })}
+                    onChange={e => setEditVolunteer({ ...editVolunteer, contact: e.target.value })}
                   />
                 </div>
                 <div className="flex justify-end">

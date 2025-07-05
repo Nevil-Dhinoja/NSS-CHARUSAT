@@ -12,6 +12,8 @@ const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);
 const volunteerRoutes = require('./routes/volunteers');
 app.use('/api/volunteers', volunteerRoutes); 
+const workingHoursRoutes = require('./routes/workingHours');
+app.use('/api/working-hours', workingHoursRoutes);
 
 app.use(express.static(path.join(__dirname, '../client')));
 
