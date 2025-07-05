@@ -390,18 +390,18 @@ const WorkingHours = () => {
       const data = await response.json();
       
       if (response.ok) {
-        toast({
-          title: "Working Hours Added",
+    toast({
+      title: "Working Hours Added",
           description: `Entry for ${hours.toFixed(2)} hours has been submitted for approval.`,
-        });
-        
-        setNewEntry({
-          activity: "",
-          date: "",
-          startTime: "",
-          endTime: "",
-          description: ""
-        });
+    });
+
+    setNewEntry({
+      activity: "",
+      date: "",
+      startTime: "",
+      endTime: "",
+      description: ""
+    });
         
         setDialogOpen(false);
         fetchWorkingHours(); // Refresh the list
@@ -586,30 +586,30 @@ const WorkingHours = () => {
                     </TableRow>
                   ) : filteredWorkingHours.length > 0 ? (
                     filteredWorkingHours.map((entry) => (
-                      <TableRow key={entry.id}>
-                        <TableCell>{new Date(entry.date).toLocaleDateString()}</TableCell>
+                    <TableRow key={entry.id}>
+                      <TableCell>{new Date(entry.date).toLocaleDateString()}</TableCell>
                         <TableCell className="font-medium">{entry.activity_name}</TableCell>
                         <TableCell>{entry.start_time} - {entry.end_time}</TableCell>
-                        <TableCell>{entry.hours} hrs</TableCell>
-                        <TableCell>
+                      <TableCell>{entry.hours} hrs</TableCell>
+                      <TableCell>
                           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                             entry.status === "approved"
-                              ? "bg-green-100 text-green-800"
+                          ? "bg-green-100 text-green-800"
                               : entry.status === "pending"
                               ? "bg-orange-100 text-orange-800"
                               : "bg-red-100 text-red-800"
                           }`} style={{ color: entry.status === "approved" ? "#166534" : entry.status === "pending" ? "#ea580c" : "#dc2626" }}>
-                            {entry.status === "approved" ? (
+                          {entry.status === "approved" ? (
                               <CheckCircle className="w-3 h-3 mr-1" style={{ color: "#166534" }} />
                             ) : entry.status === "pending" ? (
                               <Clock className="w-3 h-3 mr-1" style={{ color: "#ea580c" }} />
-                            ) : (
+                          ) : (
                               <XCircle className="w-3 h-3 mr-1" style={{ color: "#dc2626" }} />
-                            )}
-                            {entry.status}
-                          </span>
-                        </TableCell>
-                        <TableCell className="max-w-xs truncate">{entry.description}</TableCell>
+                          )}
+                          {entry.status}
+                        </span>
+                      </TableCell>
+                      <TableCell className="max-w-xs truncate">{entry.description}</TableCell>
                         <TableCell>
                           <div className="flex space-x-2">
                             <Button 
@@ -651,7 +651,7 @@ const WorkingHours = () => {
                             </AlertDialog>
                           </div>
                         </TableCell>
-                      </TableRow>
+                    </TableRow>
                     ))
                   ) : (
                     <TableRow>
