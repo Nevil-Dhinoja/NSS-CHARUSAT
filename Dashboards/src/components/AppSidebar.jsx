@@ -39,7 +39,7 @@ export default function AppSidebar({ userRole, userName, userEmail }) {
       },
       {
         title: "Profile",
-        url: "/profile", 
+        url: "/profile",
         icon: User,
       },
       {
@@ -174,7 +174,7 @@ export default function AppSidebar({ userRole, userName, userEmail }) {
           </div>
         </div>
       </SidebarHeader>
-      
+
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>

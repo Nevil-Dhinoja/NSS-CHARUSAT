@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
+import {
   Table,
   TableBody,
   TableCell,
@@ -15,9 +14,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  CheckCircle, 
-  XCircle, 
+import {
+  CheckCircle,
+  XCircle,
   Clock,
   Calendar,
   User,
@@ -35,23 +34,25 @@ const Approvals = () => {
 
   React.useEffect(() => {
     const token = localStorage.getItem("nssUserToken");
-    if (!token) {
+    const userStr = localStorage.getItem("nssUser");
+    if (!token || !userStr) {
       window.location.href = "/login";
       return;
     }
-    
-    const role = localStorage.getItem("nssUserRole");
-    const name = localStorage.getItem("nssUserName") || "";
-    const email = localStorage.getItem("nssUserEmail") || "";
-    
-    if (role !== "pc" && role !== "po") {
-      window.location.href = "/dashboard";
-      return;
+    try {
+      const user = JSON.parse(userStr);
+      const role = user.role ? user.role.toLowerCase() : "";
+      if (role !== "pc" && role !== "po") {
+        window.location.href = "/dashboard";
+        return;
+      }
+      setUserRole(role);
+      setUserName(user.name);
+      setUserEmail(user.email);
+    } catch (err) {
+      localStorage.clear();
+      window.location.href = "/login";
     }
-    
-    setUserRole(role);
-    setUserName(name);
-    setUserEmail(email);
   }, []);
 
   // Mock data for event approvals
@@ -70,7 +71,7 @@ const Approvals = () => {
       id: 2,
       title: "Tree Plantation Drive",
       student: "Ravi Kumar",
-      department: "Mechanical Engineering", 
+      department: "Mechanical Engineering",
       date: "2023-12-20",
       status: "approved",
       description: "Environmental awareness and tree plantation",
@@ -92,7 +93,7 @@ const Approvals = () => {
     },
     {
       id: 2,
-      student: "Sneha Gupta", 
+      student: "Sneha Gupta",
       department: "Information Technology",
       hours: 6,
       activity: "Environmental Work",
@@ -124,13 +125,13 @@ const Approvals = () => {
   };
 
   const filteredEventApprovals = eventApprovals.filter(
-    approval => 
+    approval =>
       approval.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       approval.student.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredWorkingHoursApprovals = workingHoursApprovals.filter(
-    approval => 
+    approval =>
       approval.student.toLowerCase().includes(searchQuery.toLowerCase()) ||
       approval.activity.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -177,14 +178,14 @@ const Approvals = () => {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Pending</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {eventApprovals.filter(a => a.status === "pending").length + 
-                     workingHoursApprovals.filter(a => a.status === "pending").length}
+                    {eventApprovals.filter(a => a.status === "pending").length +
+                      workingHoursApprovals.filter(a => a.status === "pending").length}
                   </p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
@@ -194,14 +195,14 @@ const Approvals = () => {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Approved</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {eventApprovals.filter(a => a.status === "approved").length + 
-                     workingHoursApprovals.filter(a => a.status === "approved").length}
+                    {eventApprovals.filter(a => a.status === "approved").length +
+                      workingHoursApprovals.filter(a => a.status === "approved").length}
                   </p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
@@ -211,8 +212,8 @@ const Approvals = () => {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Rejected</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {eventApprovals.filter(a => a.status === "rejected").length + 
-                     workingHoursApprovals.filter(a => a.status === "rejected").length}
+                    {eventApprovals.filter(a => a.status === "rejected").length +
+                      workingHoursApprovals.filter(a => a.status === "rejected").length}
                   </p>
                 </div>
               </div>
@@ -277,15 +278,15 @@ const Approvals = () => {
                       <TableCell className="text-right">
                         {approval.status === "pending" && (
                           <div className="flex space-x-2 justify-end">
-                            <Button 
-                              size="sm" 
+                            <Button
+                              size="sm"
                               onClick={() => handleApproval("Event", approval.id, "approve")}
                               className="bg-green-600 hover:bg-green-700"
                             >
                               <CheckCircle className="h-4 w-4" />
                             </Button>
-                            <Button 
-                              size="sm" 
+                            <Button
+                              size="sm"
                               variant="outline"
                               onClick={() => handleApproval("Event", approval.id, "reject")}
                               className="border-red-500 text-red-500 hover:bg-red-50"
@@ -369,15 +370,15 @@ const Approvals = () => {
                       <TableCell className="text-right">
                         {approval.status === "pending" && (
                           <div className="flex space-x-2 justify-end">
-                            <Button 
-                              size="sm" 
+                            <Button
+                              size="sm"
                               onClick={() => handleApproval("Working Hours", approval.id, "approve")}
                               className="bg-green-600 hover:bg-green-700"
                             >
                               <CheckCircle className="h-4 w-4" />
                             </Button>
-                            <Button 
-                              size="sm" 
+                            <Button
+                              size="sm"
                               variant="outline"
                               onClick={() => handleApproval("Working Hours", approval.id, "reject")}
                               className="border-red-500 text-red-500 hover:bg-red-50"

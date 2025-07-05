@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
+import {
   Table,
   TableBody,
   TableCell,
@@ -15,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { 
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -24,9 +23,9 @@ import {
   DialogTrigger
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Users, 
-  Mail, 
+import {
+  Users,
+  Mail,
   Phone,
   Calendar,
   User,
@@ -52,23 +51,25 @@ const StudentLeaders = () => {
 
   React.useEffect(() => {
     const token = localStorage.getItem("nssUserToken");
-    if (!token) {
+    const userStr = localStorage.getItem("nssUser");
+    if (!token || !userStr) {
       window.location.href = "/login";
       return;
     }
-    
-    const role = localStorage.getItem("nssUserRole");
-    const name = localStorage.getItem("nssUserName") || "";
-    const email = localStorage.getItem("nssUserEmail") || "";
-    
-    if (role !== "pc" && role !== "po") {
-      window.location.href = "/dashboard";
-      return;
+    try {
+      const user = JSON.parse(userStr);
+      const role = user.role ? user.role.toLowerCase() : "";
+      if (role !== "pc" && role !== "po") {
+        window.location.href = "/dashboard";
+        return;
+      }
+      setUserRole(role);
+      setUserName(user.name);
+      setUserEmail(user.email);
+    } catch (err) {
+      localStorage.clear();
+      window.location.href = "/login";
     }
-    
-    setUserRole(role);
-    setUserName(name);
-    setUserEmail(email);
   }, []);
 
   // Mock data for studentLeaders
@@ -190,8 +191,8 @@ const StudentLeaders = () => {
 
   const filteredLeaders = studentLeaders.filter(leader => {
     const matchesSearch = leader.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         leader.studentId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         leader.email.toLowerCase().includes(searchQuery.toLowerCase());
+      leader.studentId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      leader.email.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesDepartment = filterDepartment === "all" || leader.department === filterDepartment;
     return matchesSearch && matchesDepartment;
   });
@@ -265,7 +266,7 @@ const StudentLeaders = () => {
                       <Input
                         id="name"
                         value={newLeader.name}
-                        onChange={(e) => setNewLeader({...newLeader, name: e.target.value})}
+                        onChange={(e) => setNewLeader({ ...newLeader, name: e.target.value })}
                         placeholder="Enter full name"
                       />
                     </div>
@@ -274,7 +275,7 @@ const StudentLeaders = () => {
                       <Input
                         id="studentId"
                         value={newLeader.studentId}
-                        onChange={(e) => setNewLeader({...newLeader, studentId: e.target.value})}
+                        onChange={(e) => setNewLeader({ ...newLeader, studentId: e.target.value })}
                         placeholder="Enter student ID"
                       />
                     </div>
@@ -284,7 +285,7 @@ const StudentLeaders = () => {
                         id="email"
                         type="email"
                         value={newLeader.email}
-                        onChange={(e) => setNewLeader({...newLeader, email: e.target.value})}
+                        onChange={(e) => setNewLeader({ ...newLeader, email: e.target.value })}
                         placeholder="Enter email address"
                       />
                     </div>
@@ -293,7 +294,7 @@ const StudentLeaders = () => {
                       <Input
                         id="phone"
                         value={newLeader.phone}
-                        onChange={(e) => setNewLeader({...newLeader, phone: e.target.value})}
+                        onChange={(e) => setNewLeader({ ...newLeader, phone: e.target.value })}
                         placeholder="Enter phone number"
                       />
                     </div>
@@ -302,7 +303,7 @@ const StudentLeaders = () => {
                       <select
                         id="department"
                         value={newLeader.department}
-                        onChange={(e) => setNewLeader({...newLeader, department: e.target.value})}
+                        onChange={(e) => setNewLeader({ ...newLeader, department: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md"
                       >
                         <option value="">Select Department</option>
@@ -318,7 +319,7 @@ const StudentLeaders = () => {
                       <select
                         id="year"
                         value={newLeader.year}
-                        onChange={(e) => setNewLeader({...newLeader, year: e.target.value})}
+                        onChange={(e) => setNewLeader({ ...newLeader, year: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md"
                       >
                         <option value="">Select Year</option>
@@ -333,7 +334,7 @@ const StudentLeaders = () => {
                       <select
                         id="position"
                         value={newLeader.position}
-                        onChange={(e) => setNewLeader({...newLeader, position: e.target.value})}
+                        onChange={(e) => setNewLeader({ ...newLeader, position: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md"
                       >
                         <option value="Student Coordinator">Student Coordinator</option>
@@ -370,7 +371,7 @@ const StudentLeaders = () => {
                 <Input
                   id="edit-name"
                   value={newLeader.name}
-                  onChange={(e) => setNewLeader({...newLeader, name: e.target.value})}
+                  onChange={(e) => setNewLeader({ ...newLeader, name: e.target.value })}
                   placeholder="Enter full name"
                 />
               </div>
@@ -379,7 +380,7 @@ const StudentLeaders = () => {
                 <Input
                   id="edit-studentId"
                   value={newLeader.studentId}
-                  onChange={(e) => setNewLeader({...newLeader, studentId: e.target.value})}
+                  onChange={(e) => setNewLeader({ ...newLeader, studentId: e.target.value })}
                   placeholder="Enter student ID"
                 />
               </div>
@@ -389,7 +390,7 @@ const StudentLeaders = () => {
                   id="edit-email"
                   type="email"
                   value={newLeader.email}
-                  onChange={(e) => setNewLeader({...newLeader, email: e.target.value})}
+                  onChange={(e) => setNewLeader({ ...newLeader, email: e.target.value })}
                   placeholder="Enter email address"
                 />
               </div>
@@ -398,7 +399,7 @@ const StudentLeaders = () => {
                 <Input
                   id="edit-phone"
                   value={newLeader.phone}
-                  onChange={(e) => setNewLeader({...newLeader, phone: e.target.value})}
+                  onChange={(e) => setNewLeader({ ...newLeader, phone: e.target.value })}
                   placeholder="Enter phone number"
                 />
               </div>
@@ -407,7 +408,7 @@ const StudentLeaders = () => {
                 <select
                   id="edit-department"
                   value={newLeader.department}
-                  onChange={(e) => setNewLeader({...newLeader, department: e.target.value})}
+                  onChange={(e) => setNewLeader({ ...newLeader, department: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 >
                   <option value="">Select Department</option>
@@ -423,7 +424,7 @@ const StudentLeaders = () => {
                 <select
                   id="edit-year"
                   value={newLeader.year}
-                  onChange={(e) => setNewLeader({...newLeader, year: e.target.value})}
+                  onChange={(e) => setNewLeader({ ...newLeader, year: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 >
                   <option value="">Select Year</option>
@@ -438,7 +439,7 @@ const StudentLeaders = () => {
                 <select
                   id="edit-position"
                   value={newLeader.position}
-                  onChange={(e) => setNewLeader({...newLeader, position: e.target.value})}
+                  onChange={(e) => setNewLeader({ ...newLeader, position: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 >
                   <option value="Student Coordinator">Student Coordinator</option>
@@ -472,7 +473,7 @@ const StudentLeaders = () => {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
@@ -486,7 +487,7 @@ const StudentLeaders = () => {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
@@ -565,18 +566,18 @@ const StudentLeaders = () => {
                       <TableCell>{getPositionBadge(leader.position)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-2 justify-end">
-                          <Button 
+                          <Button
                             onClick={() => handleEditLeader(leader)}
-                            variant="outline" 
+                            variant="outline"
                             size="sm"
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
                           {(userRole === "pc" || userRole === "po") && (
-                            <Button 
+                            <Button
                               onClick={() => handleDeleteLeader(leader.id, leader.name)}
-                              variant="outline" 
-                              size="sm" 
+                              variant="outline"
+                              size="sm"
                               className="border-red-500 text-red-500 hover:bg-red-50"
                             >
                               <Trash2 className="h-4 w-4" />

@@ -25,9 +25,9 @@ useEffect(() => {
     const user = JSON.parse(userStr);
 
     const roleMap = {
-      "Program Officer": "po",
-      "Program Coordinator": "pc",
-      "Student Coordinator": "sc",
+      "Program Officer": "PO",
+      "Program Coordinator": "PC",
+      "Student Coordinator": "SC",
       "PO": "po",
       "PC": "pc",
       "SC": "sc",

@@ -1,4 +1,3 @@
-
 import React from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
@@ -27,36 +26,36 @@ const Events = () => {
 
   // Mock events data
   const events = [
-    { 
-      id: 1, 
-      name: "Tree Plantation Drive", 
-      date: "2023-05-20", 
-      department: "University-wide", 
-      mode: "Offline", 
+    {
+      id: 1,
+      name: "Tree Plantation Drive",
+      date: "2023-05-20",
+      department: "University-wide",
+      mode: "Offline",
       status: "Upcoming",
       scheme: "Green Campus Initiative",
       faculties: 8,
       students: 75,
       beneficiaries: 200
     },
-    { 
-      id: 2, 
-      name: "Digital Literacy Workshop", 
-      date: "2023-05-25", 
-      department: "Computer Science", 
-      mode: "Hybrid", 
+    {
+      id: 2,
+      name: "Digital Literacy Workshop",
+      date: "2023-05-25",
+      department: "Computer Science",
+      mode: "Hybrid",
       status: "Upcoming",
       scheme: "Digital India",
       faculties: 4,
       students: 40,
       beneficiaries: 120
     },
-    { 
-      id: 3, 
-      name: "Blood Donation Camp", 
-      date: "2023-05-05", 
-      department: "University-wide", 
-      mode: "Offline", 
+    {
+      id: 3,
+      name: "Blood Donation Camp",
+      date: "2023-05-05",
+      department: "University-wide",
+      mode: "Offline",
       status: "Completed",
       scheme: "Healthcare Initiative",
       faculties: 12,
@@ -64,12 +63,12 @@ const Events = () => {
       beneficiaries: 250,
       reportSubmitted: true
     },
-    { 
-      id: 4, 
-      name: "Career Guidance Workshop", 
-      date: "2023-05-02", 
-      department: "Computer Science", 
-      mode: "Online", 
+    {
+      id: 4,
+      name: "Career Guidance Workshop",
+      date: "2023-05-02",
+      department: "Computer Science",
+      mode: "Online",
       status: "Completed",
       scheme: "Skill Development",
       faculties: 6,
@@ -77,12 +76,12 @@ const Events = () => {
       beneficiaries: 150,
       reportSubmitted: false
     },
-    { 
-      id: 5, 
-      name: "Rural Health Awareness", 
-      date: "2023-04-28", 
-      department: "Medical", 
-      mode: "Offline", 
+    {
+      id: 5,
+      name: "Rural Health Awareness",
+      date: "2023-04-28",
+      department: "Medical",
+      mode: "Offline",
       status: "Completed",
       scheme: "Rural Connect",
       faculties: 8,
@@ -93,21 +92,22 @@ const Events = () => {
   ];
 
   React.useEffect(() => {
-    // Check if user is logged in
     const token = localStorage.getItem("nssUserToken");
-    if (!token) {
+    const userStr = localStorage.getItem("nssUser");
+    if (!token || !userStr) {
       window.location.href = "/login";
       return;
     }
-    
-    // Get user role from localStorage
-    const role = localStorage.getItem("nssUserRole");
-    const name = localStorage.getItem("nssUserName") || "";
-    const email = localStorage.getItem("nssUserEmail") || "";
-    
-    setUserRole(role);
-    setUserName(name);
-    setUserEmail(email);
+    try {
+      const user = JSON.parse(userStr);
+      const role = user.role ? user.role.toLowerCase() : "";
+      setUserRole(role);
+      setUserName(user.name);
+      setUserEmail(user.email);
+    } catch (err) {
+      localStorage.clear();
+      window.location.href = "/login";
+    }
   }, []);
 
   const handleAddEvent = () => {
@@ -120,7 +120,7 @@ const Events = () => {
   // Filter events based on search query and selected tab
   const filteredUpcomingEvents = events
     .filter(event => event.status === "Upcoming")
-    .filter(event => 
+    .filter(event =>
       event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       event.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
       event.scheme.toLowerCase().includes(searchQuery.toLowerCase())
@@ -128,7 +128,7 @@ const Events = () => {
 
   const filteredCompletedEvents = events
     .filter(event => event.status === "Completed")
-    .filter(event => 
+    .filter(event =>
       event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       event.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
       event.scheme.toLowerCase().includes(searchQuery.toLowerCase())
@@ -149,7 +149,7 @@ const Events = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-nss-primary">Events Management</h1>
-          
+
           <Dialog>
             <DialogTrigger asChild>
               <Button className="bg-nss-primary hover:bg-nss-dark">
@@ -165,13 +165,13 @@ const Events = () => {
                   <Label htmlFor="event-name">Event Name</Label>
                   <Input id="event-name" placeholder="Enter event name" />
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="event-date">Event Date</Label>
                     <Input id="event-date" type="date" />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="event-mode">Event Mode</Label>
                     <Select>
@@ -186,7 +186,7 @@ const Events = () => {
                     </Select>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="department">Department</Label>
@@ -204,35 +204,35 @@ const Events = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="scheme">Scheme</Label>
                     <Input id="scheme" placeholder="Enter scheme name" />
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="faculties">Number of Faculties</Label>
                     <Input id="faculties" type="number" min="1" />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="students">Number of Students</Label>
                     <Input id="students" type="number" min="1" />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="beneficiaries">Number of Beneficiaries</Label>
                     <Input id="beneficiaries" type="number" min="0" />
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="description">Event Description</Label>
                   <Input id="description" placeholder="Enter event description" />
                 </div>
-                
+
                 <div className="flex justify-end">
                   <Button onClick={handleAddEvent} className="bg-nss-primary hover:bg-nss-dark">
                     Add Event
@@ -242,7 +242,7 @@ const Events = () => {
             </DialogContent>
           </Dialog>
         </div>
-        
+
         <Card className="p-4">
           <Tabs defaultValue="upcoming">
             <div className="flex flex-col md:flex-row md:items-center justify-between pb-4 gap-4">
@@ -250,7 +250,7 @@ const Events = () => {
                 <TabsTrigger value="upcoming">Upcoming Events</TabsTrigger>
                 <TabsTrigger value="completed">Completed Events</TabsTrigger>
               </TabsList>
-              
+
               <div className="flex items-center space-x-2">
                 <div className="relative w-full md:w-64">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -261,13 +261,13 @@ const Events = () => {
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
-                
+
                 <Button variant="outline" size="icon">
                   <Filter className="h-4 w-4" />
                 </Button>
               </div>
             </div>
-            
+
             <TabsContent value="upcoming" className="space-y-4">
               {filteredUpcomingEvents.map((event) => (
                 <div key={event.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
@@ -279,7 +279,7 @@ const Events = () => {
                           {event.status}
                         </Badge>
                       </div>
-                      
+
                       <div className="text-sm text-muted-foreground space-y-1">
                         <div className="flex items-center">
                           <Calendar className="h-4 w-4 mr-2" />
@@ -290,7 +290,7 @@ const Events = () => {
                         <p>Scheme: {event.scheme}</p>
                       </div>
                     </div>
-                    
+
                     <div className="mt-4 md:mt-0 flex flex-col md:items-end space-y-2">
                       <div className="bg-gray-100 p-2 rounded-md text-sm">
                         <p className="text-xs text-muted-foreground">Participation</p>
@@ -309,7 +309,7 @@ const Events = () => {
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="flex space-x-2">
                         <Button variant="outline" size="sm">
                           Edit
@@ -322,14 +322,14 @@ const Events = () => {
                   </div>
                 </div>
               ))}
-              
+
               {filteredUpcomingEvents.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
                   No upcoming events found matching your search.
                 </div>
               )}
             </TabsContent>
-            
+
             <TabsContent value="completed" className="space-y-4">
               {filteredCompletedEvents.map((event) => (
                 <div key={event.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
@@ -350,7 +350,7 @@ const Events = () => {
                           </Badge>
                         )}
                       </div>
-                      
+
                       <div className="text-sm text-muted-foreground space-y-1">
                         <div className="flex items-center">
                           <Calendar className="h-4 w-4 mr-2" />
@@ -361,7 +361,7 @@ const Events = () => {
                         <p>Scheme: {event.scheme}</p>
                       </div>
                     </div>
-                    
+
                     <div className="mt-4 md:mt-0 flex flex-col md:items-end space-y-2">
                       <div className="bg-gray-100 p-2 rounded-md text-sm">
                         <p className="text-xs text-muted-foreground">Participation</p>
@@ -380,7 +380,7 @@ const Events = () => {
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="flex space-x-2">
                         {!event.reportSubmitted && (
                           <Button size="sm" className="bg-nss-primary hover:bg-nss-dark">
@@ -402,7 +402,7 @@ const Events = () => {
                   </div>
                 </div>
               ))}
-              
+
               {filteredCompletedEvents.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
                   No completed events found matching your search.

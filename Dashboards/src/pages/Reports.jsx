@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
+import {
   Table,
   TableBody,
   TableCell,
@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { 
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -23,9 +23,9 @@ import {
   DialogTrigger
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  FileText, 
-  Download, 
+import {
+  FileText,
+  Download,
   Calendar,
   User,
   Search,
@@ -47,18 +47,21 @@ const Reports = () => {
 
   React.useEffect(() => {
     const token = localStorage.getItem("nssUserToken");
-    if (!token) {
+    const userStr = localStorage.getItem("nssUser");
+    if (!token || !userStr) {
       window.location.href = "/login";
       return;
     }
-    
-    const role = localStorage.getItem("nssUserRole");
-    const name = localStorage.getItem("nssUserName") || "";
-    const email = localStorage.getItem("nssUserEmail") || "";
-    
-    setUserRole(role);
-    setUserName(name);
-    setUserEmail(email);
+    try {
+      const user = JSON.parse(userStr);
+      const role = user.role ? user.role.toLowerCase() : "";
+      setUserRole(role);
+      setUserName(user.name);
+      setUserEmail(user.email);
+    } catch (err) {
+      localStorage.clear();
+      window.location.href = "/login";
+    }
   }, []);
 
   // Mock data for reports
@@ -134,7 +137,7 @@ const Reports = () => {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setNewReport({...newReport, file: file});
+      setNewReport({ ...newReport, file: file });
     }
   };
 
@@ -147,8 +150,8 @@ const Reports = () => {
 
   const filteredReports = reports.filter(report => {
     const matchesSearch = report.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         report.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         report.department.toLowerCase().includes(searchQuery.toLowerCase());
+      report.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      report.department.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFilter = filterType === "all" || report.type === filterType;
     return matchesSearch && matchesFilter;
   });
@@ -230,7 +233,7 @@ const Reports = () => {
                       <Input
                         id="title"
                         value={newReport.title}
-                        onChange={(e) => setNewReport({...newReport, title: e.target.value})}
+                        onChange={(e) => setNewReport({ ...newReport, title: e.target.value })}
                         placeholder="Enter report title"
                       />
                     </div>
@@ -239,7 +242,7 @@ const Reports = () => {
                       <select
                         id="type"
                         value={newReport.type}
-                        onChange={(e) => setNewReport({...newReport, type: e.target.value})}
+                        onChange={(e) => setNewReport({ ...newReport, type: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md"
                       >
                         <option value="Event Report">Event Report</option>
@@ -251,7 +254,7 @@ const Reports = () => {
                       <textarea
                         id="description"
                         value={newReport.description}
-                        onChange={(e) => setNewReport({...newReport, description: e.target.value})}
+                        onChange={(e) => setNewReport({ ...newReport, description: e.target.value })}
                         placeholder="Enter report description"
                         rows={4}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md"
@@ -304,7 +307,7 @@ const Reports = () => {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
@@ -320,7 +323,7 @@ const Reports = () => {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
@@ -404,9 +407,9 @@ const Reports = () => {
                             <Eye className="h-4 w-4" />
                           </Button>
                           {report.status === "approved" && (
-                            <Button 
+                            <Button
                               onClick={() => handleDownload(report.id, report.title)}
-                              size="sm" 
+                              size="sm"
                               className="bg-green-600 hover:bg-green-700"
                             >
                               <Download className="h-4 w-4" />

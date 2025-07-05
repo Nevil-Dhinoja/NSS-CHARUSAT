@@ -1,11 +1,10 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { 
+import {
   Table,
   TableBody,
   TableCell,
@@ -23,85 +22,35 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger 
+  DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
+
+const testPDF = () => {
+  const doc = new jsPDF();
+  doc.text("Test PDF", 10, 10);
+  doc.autoTable({
+    head: [["Name", "Age"]],
+    body: [["Alice", 25], ["Bob", 30]],
+  });
+  doc.save("test.pdf");
+};
 
 const Volunteers = () => {
   const [userRole, setUserRole] = React.useState(null);
   const [userName, setUserName] = React.useState("");
   const [userEmail, setUserEmail] = React.useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedYear, setSelectedYear] = useState("all");
-  const [selectedDepartment, setSelectedDepartment] = useState("all");
+  const [selectedYear, setSelectedYear] = useState("");
   const { toast } = useToast();
-
-  // Mock volunteers data
-  const volunteers = [
-    { 
-      id: 1, 
-      name: "Rajesh Kumar", 
-      studentId: "STU101", 
-      department: "Computer Science", 
-      year: "2023", 
-      email: "rajesh@example.com", 
-      phone: "9876543220", 
-      joinDate: "2023-07-15"
-    },
-    { 
-      id: 2, 
-      name: "Anita Desai", 
-      studentId: "STU102", 
-      department: "Mechanical Engineering", 
-      year: "2023", 
-      email: "anita@example.com", 
-      phone: "9876543221", 
-      joinDate: "2023-07-15"
-    },
-    { 
-      id: 3, 
-      name: "Vikram Singh", 
-      studentId: "STU103", 
-      department: "Electrical Engineering", 
-      year: "2022", 
-      email: "vikram@example.com", 
-      phone: "9876543222", 
-      joinDate: "2022-08-10"
-    },
-    { 
-      id: 4, 
-      name: "Meera Patel", 
-      studentId: "STU104", 
-      department: "Civil Engineering", 
-      year: "2022", 
-      email: "meera@example.com", 
-      phone: "9876543223", 
-      joinDate: "2022-08-10"
-    },
-    { 
-      id: 5, 
-      name: "Prakash Joshi", 
-      studentId: "STU105", 
-      department: "Information Technology", 
-      year: "2021", 
-      email: "prakash@example.com", 
-      phone: "9876543224", 
-      joinDate: "2021-07-22"
-    },
-    { 
-      id: 6, 
-      name: "Divya Sharma", 
-      studentId: "STU106", 
-      department: "Computer Science", 
-      year: "2021", 
-      email: "divya@example.com", 
-      phone: "9876543225", 
-      joinDate: "2021-07-22"
-    },
-  ];
+  const [userDepartment, setUserDepartment] = useState("");
+  const [volunteers, setVolunteers] = useState([]);
+  const [loadingVolunteers, setLoadingVolunteers] = useState(true);
 
   const [newVolunteer, setNewVolunteer] = useState({
     name: "",
@@ -112,20 +61,50 @@ const Volunteers = () => {
     phone: ""
   });
 
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editVolunteer, setEditVolunteer] = useState(null);
+
   React.useEffect(() => {
     const token = localStorage.getItem("nssUserToken");
-    if (!token) {
+    const userStr = localStorage.getItem("nssUser");
+    if (!token || !userStr) {
       window.location.href = "/login";
       return;
     }
-    
-    const role = localStorage.getItem("nssUserRole");
-    const name = localStorage.getItem("nssUserName") || "";
-    const email = localStorage.getItem("nssUserEmail") || "";
-    
-    setUserRole(role);
-    setUserName(name);
-    setUserEmail(email);
+    try {
+      const user = JSON.parse(userStr);
+      const role = user.role ? user.role.toLowerCase() : "";
+      setUserRole(role);
+      setUserName(user.name);
+      setUserEmail(user.email);
+      setUserDepartment(user.department);
+      setNewVolunteer((prev) => ({ ...prev, department: user.department }));
+    } catch (err) {
+      localStorage.clear();
+      window.location.href = "/login";
+    }
+  }, []);
+
+  const fetchVolunteers = async () => {
+    setLoadingVolunteers(true);
+    const token = localStorage.getItem("nssUserToken");
+    try {
+      const response = await fetch("http://localhost:5000/api/volunteers/all", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+      setVolunteers(data);
+    } catch (error) {
+      setVolunteers([]);
+    } finally {
+      setLoadingVolunteers(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchVolunteers();
   }, []);
 
   const handleUploadVolunteers = () => {
@@ -135,41 +114,145 @@ const Volunteers = () => {
     });
   };
 
-  const handleAddVolunteer = () => {
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const token = localStorage.getItem("nssUserToken");
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch("http://localhost:5000/api/volunteers/upload", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Upload failed");
+
+      toast({
+        title: "Upload Successful",
+        description: data.message,
+      });
+    } catch (error) {
+      toast({
+        title: "Upload Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAddVolunteer = async () => {
     if (!newVolunteer.name || !newVolunteer.studentId || !newVolunteer.email) {
       toast({
         title: "Missing Information",
         description: "Please fill in all required fields.",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
 
-    toast({
-      title: "Volunteer Added",
-      description: `${newVolunteer.name} has been added to the volunteers list.`,
-    });
+    try {
+      const token = localStorage.getItem("nssUserToken");
 
-    setNewVolunteer({
-      name: "",
-      studentId: "",
-      department: "",
-      year: "",
-      email: "",
-      phone: ""
-    });
+      const response = await fetch("http://localhost:5000/api/volunteers/addVolunteer", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(newVolunteer),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to add volunteer");
+      }
+
+      toast({
+        title: "Volunteer Added",
+        description: `${newVolunteer.name} has been successfully added.`,
+      });
+
+      setNewVolunteer({
+        name: "",
+        studentId: "",
+        department: "",
+        year: "",
+        email: "",
+        phone: "",
+      });
+
+      // Optional: Refresh volunteer list from backend (once connected)
+    } catch (error) {
+      toast({
+        title: "Add Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   // Filter volunteers based on criteria
   const filteredVolunteers = volunteers.filter(
-    volunteer => 
-      (selectedYear === "all" || volunteer.year === selectedYear) &&
-      (selectedDepartment === "all" || volunteer.department === selectedDepartment) &&
-      (volunteer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      volunteer.studentId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      volunteer.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      volunteer.department.toLowerCase().includes(searchQuery.toLowerCase()))
+    volunteer =>
+      (!selectedYear || volunteer.year?.toString().includes(selectedYear)) &&
+      (
+        volunteer.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        volunteer.student_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        volunteer.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        volunteer.department?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
   );
+
+  const handleExportExcel = () => {
+    const data = filteredVolunteers.map(v => ({
+      Name: v.name,
+      "Student ID": v.student_id,
+      Department: v.department,
+      Year: v.year,
+      Email: v.email,
+      Phone: v.phone,
+      "Joined On": v.joined_on ? new Date(v.joined_on).toLocaleDateString() : ""
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Volunteers");
+    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const file = new Blob([excelBuffer], { type: "application/octet-stream" });
+    saveAs(file, "volunteers.xlsx");
+  };
+
+  const handleEditVolunteer = (volunteer) => {
+    setEditVolunteer(volunteer);
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdateVolunteer = async () => {
+    const token = localStorage.getItem("nssUserToken");
+    const response = await fetch(`http://localhost:5000/api/volunteers/edit/${editVolunteer.id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(editVolunteer),
+    });
+    const data = await response.json();
+    if (response.ok) {
+      toast({ title: "Volunteer updated", description: data.message });
+      setEditDialogOpen(false);
+      fetchVolunteers();
+    } else {
+      toast({ title: "Update failed", description: data.error, variant: "destructive" });
+    }
+  };
 
   if (!userRole || !userName) {
     return (
@@ -186,7 +269,7 @@ const Volunteers = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-nss-primary">Volunteers Management</h1>
-          
+
           <div className="flex space-x-2">
             <Dialog>
               <DialogTrigger asChild>
@@ -200,53 +283,22 @@ const Volunteers = () => {
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label htmlFor="academic-year">Academic Year</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select academic year" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="2023">2023-24</SelectItem>
-                        <SelectItem value="2022">2022-23</SelectItem>
-                        <SelectItem value="2021">2021-22</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="department">Department</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select department" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="cse">Computer Science & Engineering</SelectItem>
-                        <SelectItem value="mech">Mechanical Engineering</SelectItem>
-                        <SelectItem value="elec">Electrical Engineering</SelectItem>
-                        <SelectItem value="civil">Civil Engineering</SelectItem>
-                        <SelectItem value="it">Information Technology</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="file">Excel File</Label>
+                    <Label htmlFor="file">Excel/CSV File</Label>
                     <div className="border-2 border-dashed border-gray-300 rounded-md p-6 text-center">
-                      <Input id="file" type="file" className="hidden" />
-                      <Label 
-                        htmlFor="file" 
+                      <Input id="file" type="file" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" onChange={handleFileUpload} className="hidden" />
+                      <Label
+                        htmlFor="file"
                         className="cursor-pointer flex flex-col items-center justify-center"
                       >
                         <Upload className="h-8 w-8 mb-2 text-muted-foreground" />
-                        <span className="text-sm font-medium">Click to upload volunteers list (Excel format)</span>
+                        <span className="text-sm font-medium">Click to upload volunteers list (Excel or CSV format)</span>
                         <span className="text-xs text-muted-foreground mt-1">
-                          Upload Excel file with student details
+                          Upload file with columns: name, studentId, department, year, email, contact
                         </span>
                       </Label>
                     </div>
                   </div>
-                  <div className="flex justify-between">
-                    <Button variant="outline">
-                      <Download className="mr-2 h-4 w-4" /> Download Template
-                    </Button>
+                  <div className="flex justify-end">
                     <Button onClick={handleUploadVolunteers} className="bg-nss-primary hover:bg-nss-dark">
                       Upload Volunteers List
                     </Button>
@@ -254,7 +306,7 @@ const Volunteers = () => {
                 </div>
               </DialogContent>
             </Dialog>
-            
+
             <Dialog>
               <DialogTrigger asChild>
                 <Button variant="outline">
@@ -268,70 +320,60 @@ const Volunteers = () => {
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
                     <Label htmlFor="academic-year">Academic Year</Label>
-                    <Select value={newVolunteer.year} onValueChange={(value) => setNewVolunteer({...newVolunteer, year: value})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select academic year" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="2023">2023-24</SelectItem>
-                        <SelectItem value="2022">2022-23</SelectItem>
-                        <SelectItem value="2021">2021-22</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      id="academic-year"
+                      placeholder="Enter academic year"
+                      value={newVolunteer.year}
+                      onChange={(e) => setNewVolunteer({ ...newVolunteer, year: e.target.value })}
+                    />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="volunteer-name">Full Name</Label>
-                      <Input 
-                        id="volunteer-name" 
+                      <Input
+                        id="volunteer-name"
                         placeholder="Enter full name"
                         value={newVolunteer.name}
-                        onChange={(e) => setNewVolunteer({...newVolunteer, name: e.target.value})}
+                        onChange={(e) => setNewVolunteer({ ...newVolunteer, name: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="student-id">Student ID</Label>
-                      <Input 
-                        id="student-id" 
+                      <Input
+                        id="student-id"
                         placeholder="Enter student ID"
                         value={newVolunteer.studentId}
-                        onChange={(e) => setNewVolunteer({...newVolunteer, studentId: e.target.value})}
+                        onChange={(e) => setNewVolunteer({ ...newVolunteer, studentId: e.target.value })}
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="department">Department</Label>
-                    <Select value={newVolunteer.department} onValueChange={(value) => setNewVolunteer({...newVolunteer, department: value})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select department" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Computer Science">Computer Science & Engineering</SelectItem>
-                        <SelectItem value="Mechanical Engineering">Mechanical Engineering</SelectItem>
-                        <SelectItem value="Electrical Engineering">Electrical Engineering</SelectItem>
-                        <SelectItem value="Civil Engineering">Civil Engineering</SelectItem>
-                        <SelectItem value="Information Technology">Information Technology</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      id="department"
+                      value={userDepartment}
+                      readOnly
+                      disabled
+                    />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="email">Email Address</Label>
-                      <Input 
-                        id="email" 
-                        type="email" 
+                      <Input
+                        id="email"
+                        type="email"
                         placeholder="Enter email"
                         value={newVolunteer.email}
-                        onChange={(e) => setNewVolunteer({...newVolunteer, email: e.target.value})}
+                        onChange={(e) => setNewVolunteer({ ...newVolunteer, email: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="phone">Phone Number</Label>
-                      <Input 
-                        id="phone" 
+                      <Input
+                        id="phone"
                         placeholder="Enter phone number"
                         value={newVolunteer.phone}
-                        onChange={(e) => setNewVolunteer({...newVolunteer, phone: e.target.value})}
+                        onChange={(e) => setNewVolunteer({ ...newVolunteer, phone: e.target.value })}
                       />
                     </div>
                   </div>
@@ -345,7 +387,7 @@ const Volunteers = () => {
             </Dialog>
           </div>
         </div>
-        
+
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -361,32 +403,17 @@ const Volunteers = () => {
           <CardContent>
             <div className="flex flex-col md:flex-row md:items-center justify-between pb-4 gap-4">
               <div className="flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-2">
-                <Select value={selectedYear} onValueChange={setSelectedYear}>
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="Filter by year" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Years</SelectItem>
-                    <SelectItem value="2023">2023-24</SelectItem>
-                    <SelectItem value="2022">2022-23</SelectItem>
-                    <SelectItem value="2021">2021-22</SelectItem>
-                  </SelectContent>
-                </Select>
-                
-                <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Filter by department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Departments</SelectItem>
-                    <SelectItem value="Computer Science">Computer Science</SelectItem>
-                    <SelectItem value="Mechanical Engineering">Mechanical Engineering</SelectItem>
-                    <SelectItem value="Electrical Engineering">Electrical Engineering</SelectItem>
-                    <SelectItem value="Civil Engineering">Civil Engineering</SelectItem>
-                    <SelectItem value="Information Technology">Information Technology</SelectItem>
-                  </SelectContent>
-                </Select>
-                
+                <div>
+                  <Label htmlFor="year-filter">Filter by Academic Year</Label>
+                  <Input
+                    id="year-filter"
+                    type="text"
+                    placeholder="Enter year (e.g. 2023)"
+                    value={selectedYear}
+                    onChange={e => setSelectedYear(e.target.value)}
+                    className="w-[140px]"
+                  />
+                </div>
                 <div className="relative w-full md:w-64">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -396,7 +423,6 @@ const Volunteers = () => {
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
-                
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="icon">
@@ -404,14 +430,12 @@ const Volunteers = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem>Export to Excel</DropdownMenuItem>
-                    <DropdownMenuItem>Print List</DropdownMenuItem>
-                    <DropdownMenuItem>Generate Report</DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportExcel}>Export to Excel</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
             </div>
-            
+
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
@@ -422,31 +446,46 @@ const Volunteers = () => {
                     <TableHead>Year</TableHead>
                     <TableHead>Contact</TableHead>
                     <TableHead>Joined On</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredVolunteers.map((volunteer) => (
-                    <TableRow key={volunteer.id}>
-                      <TableCell className="font-medium">{volunteer.name}</TableCell>
-                      <TableCell>{volunteer.studentId}</TableCell>
-                      <TableCell>{volunteer.department}</TableCell>
-                      <TableCell>{volunteer.year}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-col space-y-1">
-                          <div className="flex items-center text-sm">
-                            <Mail className="w-3 h-3 mr-1" />
-                            {volunteer.email}
-                          </div>
-                          <div className="flex items-center text-sm">
-                            <Phone className="w-3 h-3 mr-1" />
-                            {volunteer.phone}
-                          </div>
-                        </div>
+                  {loadingVolunteers ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-4">
+                        Loading volunteers...
                       </TableCell>
-                      <TableCell>{new Date(volunteer.joinDate).toLocaleDateString()}</TableCell>
                     </TableRow>
-                  ))}
-                  {filteredVolunteers.length === 0 && (
+                  ) : filteredVolunteers.length > 0 ? (
+                    filteredVolunteers.map((volunteer) => (
+                      <TableRow key={volunteer.id}>
+                        <TableCell className="font-medium">{volunteer.name}</TableCell>
+                        <TableCell>{volunteer.student_id}</TableCell>
+                        <TableCell>{volunteer.department}</TableCell>
+                        <TableCell>{volunteer.year}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col space-y-1">
+                            <div className="flex items-center text-sm">
+                              <Mail className="w-3 h-3 mr-1" />
+                              {volunteer.email}
+                            </div>
+                            <div className="flex items-center text-sm">
+                              <Phone className="w-3 h-3 mr-1" />
+                              {volunteer.contact}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{volunteer.joined_on ? new Date(volunteer.joined_on).toLocaleDateString() : ''}</TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button variant="outline" size="sm" onClick={() => handleEditVolunteer(volunteer)}>
+                              Edit
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-4">
                         No volunteers found matching your criteria.
@@ -458,6 +497,71 @@ const Volunteers = () => {
             </div>
           </CardContent>
         </Card>
+
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Volunteer</DialogTitle>
+            </DialogHeader>
+            {editVolunteer && (
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-name">Full Name</Label>
+                  <Input
+                    id="edit-name"
+                    value={editVolunteer.name}
+                    onChange={e => setEditVolunteer({ ...editVolunteer, name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-student-id">Student ID</Label>
+                  <Input
+                    id="edit-student-id"
+                    value={editVolunteer.student_id}
+                    onChange={e => setEditVolunteer({ ...editVolunteer, student_id: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-department">Department</Label>
+                  <Input
+                    id="edit-department"
+                    value={editVolunteer.department}
+                    onChange={e => setEditVolunteer({ ...editVolunteer, department: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-year">Year</Label>
+                  <Input
+                    id="edit-year"
+                    value={editVolunteer.year}
+                    onChange={e => setEditVolunteer({ ...editVolunteer, year: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">Email</Label>
+                  <Input
+                    id="edit-email"
+                    value={editVolunteer.email}
+                    onChange={e => setEditVolunteer({ ...editVolunteer, email: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-phone">Phone</Label>
+                  <Input
+                    id="edit-phone"
+                    value={editVolunteer.contact}
+                    onChange={e => setEditVolunteer({ ...editVolunteer, phone: e.target.value })}
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <Button onClick={handleUpdateVolunteer} className="bg-nss-primary hover:bg-nss-dark">
+                    Update Volunteer
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

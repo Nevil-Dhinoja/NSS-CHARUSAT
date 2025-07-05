@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { 
+import {
   Table,
   TableBody,
   TableCell,
@@ -39,7 +38,7 @@ const WorkingHours = () => {
     { id: 2, date: "2023-12-03", activity: "Blood Donation Camp", startTime: "08:00", endTime: "16:00", hours: 8, status: "approved", description: "Assisted in organizing blood donation camp" },
     { id: 3, date: "2023-12-05", activity: "Tree Plantation", startTime: "07:00", endTime: "11:00", hours: 4, status: "pending", description: "Planted trees in college campus" },
     { id: 4, date: "2023-12-07", activity: "Educational Workshop", startTime: "14:00", endTime: "17:00", hours: 3, status: "approved", description: "Conducted workshop for underprivileged children" },
-    { id:5, date: "2023-12-10", activity: "Health Awareness Campaign", startTime: "10:00", endTime: "15:00", hours: 5, status: "pending", description: "Organized health checkup camp" },
+    { id: 5, date: "2023-12-10", activity: "Health Awareness Campaign", startTime: "10:00", endTime: "15:00", hours: 5, status: "pending", description: "Organized health checkup camp" },
   ];
 
   const [newEntry, setNewEntry] = useState({
@@ -52,24 +51,25 @@ const WorkingHours = () => {
 
   React.useEffect(() => {
     const token = localStorage.getItem("nssUserToken");
-    if (!token) {
+    const userStr = localStorage.getItem("nssUser");
+    if (!token || !userStr) {
       window.location.href = "/login";
       return;
     }
-    
-    const role = localStorage.getItem("nssUserRole");
-    const name = localStorage.getItem("nssUserName") || "";
-    const email = localStorage.getItem("nssUserEmail") || "";
-    
-    // Only Student Coordinators should access this page
-    if (role !== "sc") {
-      window.location.href = "/dashboard";
-      return;
+    try {
+      const user = JSON.parse(userStr);
+      const role = user.role ? user.role.toLowerCase() : "";
+      if (role !== "sc") {
+        window.location.href = "/dashboard";
+        return;
+      }
+      setUserRole(role);
+      setUserName(user.name);
+      setUserEmail(user.email);
+    } catch (err) {
+      localStorage.clear();
+      window.location.href = "/login";
     }
-    
-    setUserRole(role);
-    setUserName(name);
-    setUserEmail(email);
   }, []);
 
   const calculateHours = (startTime, endTime) => {
@@ -119,7 +119,7 @@ const WorkingHours = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-nss-primary">Working Hours</h1>
-          
+
           <Dialog>
             <DialogTrigger asChild>
               <Button className="bg-nss-primary hover:bg-nss-dark">
@@ -136,7 +136,7 @@ const WorkingHours = () => {
                   <Input
                     id="activity"
                     value={newEntry.activity}
-                    onChange={(e) => setNewEntry({...newEntry, activity: e.target.value})}
+                    onChange={(e) => setNewEntry({ ...newEntry, activity: e.target.value })}
                     placeholder="Enter activity name"
                   />
                 </div>
@@ -146,7 +146,7 @@ const WorkingHours = () => {
                     id="date"
                     type="date"
                     value={newEntry.date}
-                    onChange={(e) => setNewEntry({...newEntry, date: e.target.value})}
+                    onChange={(e) => setNewEntry({ ...newEntry, date: e.target.value })}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -156,7 +156,7 @@ const WorkingHours = () => {
                       id="startTime"
                       type="time"
                       value={newEntry.startTime}
-                      onChange={(e) => setNewEntry({...newEntry, startTime: e.target.value})}
+                      onChange={(e) => setNewEntry({ ...newEntry, startTime: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
@@ -165,7 +165,7 @@ const WorkingHours = () => {
                       id="endTime"
                       type="time"
                       value={newEntry.endTime}
-                      onChange={(e) => setNewEntry({...newEntry, endTime: e.target.value})}
+                      onChange={(e) => setNewEntry({ ...newEntry, endTime: e.target.value })}
                     />
                   </div>
                 </div>
@@ -179,7 +179,7 @@ const WorkingHours = () => {
                   <Textarea
                     id="description"
                     value={newEntry.description}
-                    onChange={(e) => setNewEntry({...newEntry, description: e.target.value})}
+                    onChange={(e) => setNewEntry({ ...newEntry, description: e.target.value })}
                     placeholder="Describe the activity..."
                     rows={3}
                   />
@@ -237,7 +237,7 @@ const WorkingHours = () => {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
@@ -258,11 +258,10 @@ const WorkingHours = () => {
                       <TableCell>{entry.startTime} - {entry.endTime}</TableCell>
                       <TableCell>{entry.hours} hrs</TableCell>
                       <TableCell>
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          entry.status === "approved" 
-                            ? "bg-green-100 text-green-800" 
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}>
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${entry.status === "approved"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-yellow-100 text-yellow-800"
+                          }`}>
                           {entry.status === "approved" ? (
                             <CheckCircle className="w-3 h-3 mr-1" />
                           ) : (

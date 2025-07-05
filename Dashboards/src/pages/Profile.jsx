@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,37 +25,39 @@ const Profile = () => {
 
   React.useEffect(() => {
     const token = localStorage.getItem("nssUserToken");
-    if (!token) {
+    const userStr = localStorage.getItem("nssUser");
+    if (!token || !userStr) {
       window.location.href = "/login";
       return;
     }
-    
-    const role = localStorage.getItem("nssUserRole");
-    const name = localStorage.getItem("nssUserName") || "";
-    const email = localStorage.getItem("nssUserEmail") || "";
-    
-    setUserRole(role);
-    setUserName(name);
-    setUserEmail(email);
-    
-    setProfileData({
-      fullName: name,
-      email: email,
-      department: role === "pc" ? "Administration" : role === "po" ? "Computer Science" : "Information Technology",
-      employeeId: role === "pc" ? "PC001" : role === "po" ? "PO001" : "ST001",
-      phone: "+91 9876543210",
-      designation: role === "pc" ? "Program Coordinator" : role === "po" ? "Program Officer" : "Student Coordinator"
-    });
+    try {
+      const user = JSON.parse(userStr);
+      const role = user.role ? user.role.toLowerCase() : "";
+      setUserRole(role);
+      setUserName(user.name);
+      setUserEmail(user.email);
+      setProfileData({
+        fullName: user.name,
+        email: user.email,
+        department: role === "pc" ? "Administration" : role === "po" ? "Computer Science" : "Information Technology",
+        employeeId: role === "pc" ? "PC001" : role === "po" ? "PO001" : "ST001",
+        phone: "+91 9876543210",
+        designation: role === "pc" ? "Program Coordinator" : role === "po" ? "Program Officer" : "Student Coordinator"
+      });
+    } catch (err) {
+      localStorage.clear();
+      window.location.href = "/login";
+    }
   }, []);
 
   const handleSave = () => {
     localStorage.setItem("nssUserName", profileData.fullName);
     localStorage.setItem("nssUserEmail", profileData.email);
-    
+
     setUserName(profileData.fullName);
     setUserEmail(profileData.email);
     setIsEditing(false);
-    
+
     toast({
       title: "Profile Updated",
       description: "Your profile has been updated successfully.",
@@ -114,22 +115,22 @@ const Profile = () => {
             <p className="text-gray-600 mt-1">Manage your personal information and account settings</p>
           </div>
           {!isEditing ? (
-            <Button 
-              onClick={() => setIsEditing(true)} 
+            <Button
+              onClick={() => setIsEditing(true)}
               className="bg-nss-primary hover:bg-nss-dark"
             >
               <Edit className="mr-2 h-4 w-4" /> Edit Profile
             </Button>
           ) : (
             <div className="flex gap-2">
-              <Button 
-                onClick={handleSave} 
+              <Button
+                onClick={handleSave}
                 className="bg-green-600 hover:bg-green-700"
               >
                 <Save className="mr-2 h-4 w-4" /> Save Changes
               </Button>
-              <Button 
-                onClick={handleCancel} 
+              <Button
+                onClick={handleCancel}
                 variant="outline"
               >
                 <X className="mr-2 h-4 w-4" /> Cancel
@@ -137,7 +138,7 @@ const Profile = () => {
             </div>
           )}
         </div>
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Profile Picture & Basic Info */}
           <div className="lg:col-span-1">
@@ -154,8 +155,8 @@ const Profile = () => {
                     </AvatarFallback>
                   </Avatar>
                   {isEditing && (
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       className="absolute -bottom-1 -right-1 rounded-full p-2"
                     >
                       <Camera className="h-4 w-4" />
@@ -199,7 +200,7 @@ const Profile = () => {
                     <Input
                       id="fullName"
                       value={profileData.fullName}
-                      onChange={(e) => setProfileData({...profileData, fullName: e.target.value})}
+                      onChange={(e) => setProfileData({ ...profileData, fullName: e.target.value })}
                       disabled={!isEditing}
                       className={isEditing ? "" : "bg-gray-50"}
                     />
@@ -213,7 +214,7 @@ const Profile = () => {
                       id="email"
                       type="email"
                       value={profileData.email}
-                      onChange={(e) => setProfileData({...profileData, email: e.target.value})}
+                      onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
                       disabled={!isEditing}
                       className={isEditing ? "" : "bg-gray-50"}
                     />
@@ -226,7 +227,7 @@ const Profile = () => {
                     <Input
                       id="employeeId"
                       value={profileData.employeeId}
-                      onChange={(e) => setProfileData({...profileData, employeeId: e.target.value})}
+                      onChange={(e) => setProfileData({ ...profileData, employeeId: e.target.value })}
                       disabled={!isEditing}
                       className={isEditing ? "" : "bg-gray-50"}
                     />
@@ -239,7 +240,7 @@ const Profile = () => {
                     <Input
                       id="department"
                       value={profileData.department}
-                      onChange={(e) => setProfileData({...profileData, department: e.target.value})}
+                      onChange={(e) => setProfileData({ ...profileData, department: e.target.value })}
                       disabled={!isEditing}
                       className={isEditing ? "" : "bg-gray-50"}
                     />
@@ -252,7 +253,7 @@ const Profile = () => {
                     <Input
                       id="phone"
                       value={profileData.phone}
-                      onChange={(e) => setProfileData({...profileData, phone: e.target.value})}
+                      onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
                       disabled={!isEditing}
                       className={isEditing ? "" : "bg-gray-50"}
                     />
@@ -265,7 +266,7 @@ const Profile = () => {
                     <Input
                       id="designation"
                       value={profileData.designation}
-                      onChange={(e) => setProfileData({...profileData, designation: e.target.value})}
+                      onChange={(e) => setProfileData({ ...profileData, designation: e.target.value })}
                       disabled={!isEditing}
                       className={isEditing ? "" : "bg-gray-50"}
                     />
