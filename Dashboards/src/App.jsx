@@ -14,6 +14,7 @@ import ProgramOfficers from "./pages/ProgramOfficers.jsx";
 import StudentLeaders from "./pages/StudentLeaders.jsx";
 import Volunteers from "./pages/Volunteers.jsx";
 import Events from "./pages/Events.jsx";
+import EventsDebug from "./pages/EventsDebug.jsx";
 import Reports from "./pages/Reports.jsx";
 import WorkingHours from "./pages/WorkingHours.jsx";
 import Approvals from "./pages/Approvals.jsx";
@@ -37,6 +38,7 @@ const App = () => (
           <Route path="/student-leaders" element={<StudentLeaders />} />
           <Route path="/volunteers" element={<Volunteers />} />
           <Route path="/events" element={<Events />} />
+          <Route path="/events-debug" element={<EventsDebug />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/working-hours" element={<WorkingHours />} />
           <Route path="/approvals" element={<Approvals />} />

@@ -23,12 +23,7 @@ const ProgramOfficerDashboard = () => {
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-
-  // Mock data for events (as requested)
-  const recentEvents = [
-    { id: 1, name: "Blood Donation Camp", date: "2023-05-05", volunteers: 25 },
-    { id: 2, name: "Career Guidance Workshop", date: "2023-05-02", volunteers: 32 }
-  ];
+  const [recentEvents, setRecentEvents] = useState([]);
 
   const fetchDashboardData = async () => {
     const token = localStorage.getItem("nssUserToken");
@@ -57,8 +52,6 @@ const ProgramOfficerDashboard = () => {
           Authorization: `Bearer ${token}`,
         },
       });
-
-
 
       if (volunteersResponse.ok && workingHoursResponse.ok) {
         const volunteersData = await volunteersResponse.json();
@@ -100,6 +93,17 @@ const ProgramOfficerDashboard = () => {
 
         setPendingApprovals(formattedApprovals);
       }
+
+      // Fetch recent events
+      const eventsRes = await fetch("http://localhost:5000/api/events/recent", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (eventsRes.ok) {
+        const eventsData = await eventsRes.json();
+        setRecentEvents(eventsData);
+      } else {
+        setRecentEvents([]);
+      }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
       toast({
@@ -107,6 +111,7 @@ const ProgramOfficerDashboard = () => {
         description: "Failed to fetch dashboard data",
         variant: "destructive"
       });
+      setRecentEvents([]);
     } finally {
       setLoading(false);
     }
@@ -280,38 +285,43 @@ const ProgramOfficerDashboard = () => {
         </div>
       </Card>
       
-      {/* Recent Events Section - Keep as mock data as requested */}
+      {/* Recent Events Section */}
       <Card className="p-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg sm:text-xl font-semibold text-blue-900">Recent Events</h2>
           <Link to="/events" className="text-blue-600 hover:underline text-sm">View All</Link>
         </div>
-        
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {recentEvents.map((event) => (
-            <div key={event.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-              <h3 className="font-medium text-blue-900">{event.name}</h3>
-              <div className="mt-2 space-y-1 text-sm">
-                <p className="flex items-center text-muted-foreground">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  {new Date(event.date).toLocaleDateString()}
-                </p>
-                <p className="flex items-center text-muted-foreground">
-                  <Users className="h-4 w-4 mr-2" />
-                  {event.volunteers} volunteers
-                </p>
-              </div>
-              <div className="mt-3 flex items-center justify-between">
-                <Link to={`/events/${event.id}`} className="text-blue-600 text-sm hover:underline">
-                  View Details
-                </Link>
-                <Link to={`/events/${event.id}/report`} className="flex items-center text-blue-600 text-sm hover:underline">
-                  <FileText className="h-4 w-4 mr-1" />
-                  Report
-                </Link>
-              </div>
+          {loading ? (
+            <div className="col-span-full flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+              <span className="ml-2">Loading events...</span>
             </div>
-          ))}
+          ) : recentEvents.length > 0 ? (
+            recentEvents.slice(0, 5).map((event) => (
+              <div key={event.id} className="nss-dashboard-card flex flex-col p-4">
+                <div className="flex items-center mb-2">
+                  <Calendar className="h-4 w-4 text-blue-600 mr-2" />
+                  <span className="font-medium text-blue-900">{event.event_name}</span>
+                </div>
+                <div className="text-sm text-muted-foreground mb-1">
+                  {event.event_date ? new Date(event.event_date).toLocaleDateString() : 'N/A'}
+                </div>
+                <div className="text-xs text-gray-500 truncate mb-2">{event.description}</div>
+                <div className="flex-1" />
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-xs text-gray-500">{event.status}</span>
+                  <Link to={`/events/${event.id}`} className="text-blue-600 text-xs hover:underline">
+                    View Details
+                  </Link>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="col-span-full text-center py-8 text-muted-foreground">
+              No recent events found.
+            </div>
+          )}
         </div>
       </Card>
     </div>

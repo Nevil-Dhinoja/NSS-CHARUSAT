@@ -17,6 +17,7 @@ const StudentCoordinatorDashboard = ({ isHeadCoordinator = false }) => {
   const [workingHours, setWorkingHours] = useState([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const [recentEvents, setRecentEvents] = useState([]);
 
   // Constants for NSS requirements
   const REQUIRED_HOURS = 120;
@@ -81,8 +82,26 @@ const StudentCoordinatorDashboard = ({ isHeadCoordinator = false }) => {
     }
   };
 
+  const fetchRecentEvents = async () => {
+    const token = localStorage.getItem("nssUserToken");
+    try {
+      const eventsRes = await fetch("http://localhost:5000/api/events/recent", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (eventsRes.ok) {
+        const eventsData = await eventsRes.json();
+        setRecentEvents(eventsData);
+      } else {
+        setRecentEvents([]);
+      }
+    } catch (e) {
+      setRecentEvents([]);
+    }
+  };
+
   useEffect(() => {
     fetchWorkingHours();
+    fetchRecentEvents();
   }, []);
 
   // Calculate dynamic stats from real data
@@ -118,12 +137,6 @@ const StudentCoordinatorDashboard = ({ isHeadCoordinator = false }) => {
 
   const stats = calculateStats();
   const recentWorking = getRecentWorkingHours();
-  
-  // Mock data for upcoming events (keeping unchanged)
-  const upcomingEvents = [
-    { id: 1, name: "Tree Plantation Drive", date: "2023-05-20", role: "Team Member" },
-    { id: 2, name: "Digital Literacy Workshop", date: "2023-05-25", role: "Organizer" }
-  ];
   
   return (
     <div className="space-y-6 animate-fade-in">
@@ -215,34 +228,39 @@ const StudentCoordinatorDashboard = ({ isHeadCoordinator = false }) => {
         </div>
       </Card>
       
-      {/* Upcoming Events */}
+      {/* Recent Events */}
       <Card className="p-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg sm:text-xl font-semibold text-blue-900">Upcoming Events</h2>
+          <h2 className="text-lg sm:text-xl font-semibold text-blue-900">Recent Events</h2>
           <Link to="/events" className="text-blue-600 hover:underline text-sm">View All</Link>
         </div>
-        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {upcomingEvents.map((event) => (
-            <div key={event.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-              <h3 className="font-medium text-blue-900">{event.name}</h3>
-              <div className="mt-2 space-y-1 text-sm">
-                <p className="flex items-center text-muted-foreground">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  {new Date(event.date).toLocaleDateString()}
-                </p>
-                <p className="flex items-center text-muted-foreground">
-                  <User className="h-4 w-4 mr-2" />
-                  Role: {event.role}
-                </p>
+          {recentEvents.length > 0 ? (
+            recentEvents.slice(0, 5).map((event) => (
+              <div key={event.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                <h3 className="font-medium text-blue-900">{event.event_name}</h3>
+                <div className="mt-2 space-y-1 text-sm">
+                  <p className="flex items-center text-muted-foreground">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    {event.event_date ? new Date(event.event_date).toLocaleDateString() : 'N/A'}
+                  </p>
+                  <p className="flex items-center text-muted-foreground">
+                    <User className="h-4 w-4 mr-2" />
+                    {event.status}
+                  </p>
+                </div>
+                <div className="mt-3">
+                  <Button variant="outline" size="sm" className="border-blue-600 text-blue-600 hover:bg-blue-50">
+                    View Details
+                  </Button>
+                </div>
               </div>
-              <div className="mt-3">
-                <Button variant="outline" size="sm" className="border-blue-600 text-blue-600 hover:bg-blue-50">
-                  View Details
-                </Button>
-              </div>
+            ))
+          ) : (
+            <div className="col-span-full text-center py-8 text-muted-foreground">
+              No recent events found.
             </div>
-          ))}
+          )}
         </div>
       </Card>
     </div>
