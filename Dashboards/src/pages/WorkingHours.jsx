@@ -260,6 +260,29 @@ const WorkingHours = () => {
       const data = await response.json();
       
       if (response.ok) {
+        // Add notification for updated working hours entry
+        const addNotification = (notification) => {
+          const newNotification = {
+            ...notification,
+            id: `notification-${Date.now()}`,
+            timestamp: new Date()
+          };
+          
+          // Get existing notifications from localStorage
+          const existingNotifications = JSON.parse(localStorage.getItem('nssNotifications') || '[]');
+          const updatedNotifications = [newNotification, ...existingNotifications].slice(0, 50);
+          localStorage.setItem('nssNotifications', JSON.stringify(updatedNotifications));
+        };
+
+        addNotification({
+          type: 'working_hours',
+          title: 'Working Hours Updated',
+          message: `${editEntry.activity} - ${hours.toFixed(2)} hours updated and resubmitted for approval`,
+          status: 'pending',
+          date: new Date(editEntry.date),
+          priority: 'medium'
+        });
+
         toast({
           title: "Working Hours Updated",
           description: `Entry has been updated successfully.`,
@@ -323,6 +346,29 @@ const WorkingHours = () => {
       const data = await response.json();
       
       if (response.ok) {
+        // Add notification for deleted working hours entry
+        const addNotification = (notification) => {
+          const newNotification = {
+            ...notification,
+            id: `notification-${Date.now()}`,
+            timestamp: new Date()
+          };
+          
+          // Get existing notifications from localStorage
+          const existingNotifications = JSON.parse(localStorage.getItem('nssNotifications') || '[]');
+          const updatedNotifications = [newNotification, ...existingNotifications].slice(0, 50);
+          localStorage.setItem('nssNotifications', JSON.stringify(updatedNotifications));
+        };
+
+        addNotification({
+          type: 'working_hours',
+          title: 'Working Hours Deleted',
+          message: `${activityName} entry has been deleted successfully`,
+          status: 'info',
+          date: new Date(),
+          priority: 'low'
+        });
+
         toast({
           title: "Working Hours Deleted",
           description: `${activityName} has been deleted successfully.`,
@@ -410,18 +456,41 @@ const WorkingHours = () => {
       const data = await response.json();
       
       if (response.ok) {
-    toast({
-      title: "Working Hours Added",
-          description: `Entry for ${hours.toFixed(2)} hours has been submitted for approval.`,
-    });
+        // Add notification for new working hours entry
+        const addNotification = (notification) => {
+          const newNotification = {
+            ...notification,
+            id: `notification-${Date.now()}`,
+            timestamp: new Date()
+          };
+          
+          // Get existing notifications from localStorage
+          const existingNotifications = JSON.parse(localStorage.getItem('nssNotifications') || '[]');
+          const updatedNotifications = [newNotification, ...existingNotifications].slice(0, 50);
+          localStorage.setItem('nssNotifications', JSON.stringify(updatedNotifications));
+        };
 
-    setNewEntry({
-      activity: "",
-      date: "",
-      startTime: "",
-      endTime: "",
-      description: ""
-    });
+        addNotification({
+          type: 'working_hours',
+          title: 'Working Hours Submitted',
+          message: `${newEntry.activity} - ${hours.toFixed(2)} hours submitted for approval`,
+          status: 'pending',
+          date: new Date(newEntry.date),
+          priority: 'medium'
+        });
+
+        toast({
+          title: "Working Hours Added",
+          description: `Entry for ${hours.toFixed(2)} hours has been submitted for approval.`,
+        });
+
+        setNewEntry({
+          activity: "",
+          date: "",
+          startTime: "",
+          endTime: "",
+          description: ""
+        });
         
         setDialogOpen(false);
         fetchWorkingHours(); // Refresh the list

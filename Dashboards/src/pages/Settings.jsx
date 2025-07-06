@@ -1,11 +1,24 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout.jsx";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  Bell, 
+  CheckCircle, 
+  Clock, 
+  AlertCircle, 
+  FileText, 
+  Calendar,
+  Settings as SettingsIcon,
+  Trash2,
+  User
+} from "lucide-react";
 
 const Settings = () => {
   const [userRole, setUserRole] = React.useState(null);
@@ -15,6 +28,8 @@ const Settings = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   React.useEffect(() => {
@@ -30,17 +45,78 @@ const Settings = () => {
       setUserRole(role);
       setUserName(user.name);
       setUserEmail(user.email);
+      fetchNotifications();
     } catch (err) {
       localStorage.clear();
       window.location.href = "/login";
     }
   }, []);
 
-  const handleSaveSettings = () => {
-    toast({
-      title: "Settings Saved",
-      description: "Your settings have been updated successfully.",
-    });
+  const fetchNotifications = async () => {
+    const token = localStorage.getItem("nssUserToken");
+    if (!token) return;
+
+    try {
+      // Fetch working hours for notifications
+      const response = await fetch("http://localhost:5000/api/working-hours/my-hours", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      if (response.ok) {
+        const workingHours = await response.json();
+        
+        // Create notifications from working hours data
+        const workingHoursNotifications = workingHours.map(entry => ({
+          id: `wh-${entry.id}`,
+          type: 'working_hours',
+          title: `Working Hours ${entry.status === 'approved' ? 'Approved' : entry.status === 'rejected' ? 'Rejected' : 'Pending'}`,
+          message: `${entry.activity_name} - ${entry.hours} hours`,
+          status: entry.status,
+          date: new Date(entry.date),
+          timestamp: new Date(entry.created_at || entry.date),
+          priority: entry.status === 'rejected' ? 'high' : entry.status === 'pending' ? 'medium' : 'low'
+        }));
+
+        // Get existing notifications from localStorage
+        const existingNotifications = JSON.parse(localStorage.getItem('nssNotifications') || '[]');
+        
+        // Ensure all existing notifications have proper Date objects
+        const processedExistingNotifications = existingNotifications.map(notification => ({
+          ...notification,
+          date: notification.date ? new Date(notification.date) : new Date(),
+          timestamp: notification.timestamp ? new Date(notification.timestamp) : new Date()
+        }));
+        
+        // Combine and sort notifications by timestamp (newest first)
+        const allNotifications = [...workingHoursNotifications, ...processedExistingNotifications]
+          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        setNotifications(allNotifications);
+      }
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addNotification = (notification) => {
+    const newNotification = {
+      ...notification,
+      id: `notification-${Date.now()}`,
+      timestamp: new Date(),
+      date: notification.date ? new Date(notification.date) : new Date()
+    };
+    
+    // Add to state
+    setNotifications(prev => [newNotification, ...prev]);
+    
+    // Save to localStorage
+    const existingNotifications = JSON.parse(localStorage.getItem('nssNotifications') || '[]');
+    const updatedNotifications = [newNotification, ...existingNotifications].slice(0, 50); // Keep last 50
+    localStorage.setItem('nssNotifications', JSON.stringify(updatedNotifications));
   };
 
   const handleUpdatePassword = async () => {
@@ -111,6 +187,16 @@ const Settings = () => {
       const data = await response.json();
 
       if (response.ok) {
+        // Add notification
+        addNotification({
+          type: 'security',
+          title: 'Password Updated Successfully',
+          message: 'Your password has been changed successfully. Please remember your new password.',
+          status: 'success',
+          date: new Date(),
+          priority: 'high'
+        });
+
         toast({
           title: "Password Updated",
           description: "Your password has been changed successfully.",
@@ -143,6 +229,75 @@ const Settings = () => {
     }
   };
 
+  const getNotificationIcon = (type, status) => {
+    if (type === 'working_hours') {
+      switch (status) {
+        case 'approved':
+          return <CheckCircle className="h-5 w-5 text-green-600" />;
+        case 'rejected':
+          return <AlertCircle className="h-5 w-5 text-red-600" />;
+        case 'pending':
+          return <Clock className="h-5 w-5 text-yellow-600" />;
+        default:
+          return <FileText className="h-5 w-5 text-blue-600" />;
+      }
+    } else if (type === 'profile') {
+      return <User className="h-5 w-5 text-blue-600" />;
+    } else if (type === 'security') {
+      return <SettingsIcon className="h-5 w-5 text-purple-600" />;
+    }
+    return <Bell className="h-5 w-5 text-blue-600" />;
+  };
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'approved':
+        return <Badge className="bg-green-100 text-green-800">Approved</Badge>;
+      case 'rejected':
+        return <Badge className="bg-red-100 text-red-800">Rejected</Badge>;
+      case 'pending':
+        return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>;
+      case 'success':
+        return <Badge className="bg-green-100 text-green-800">Success</Badge>;
+      case 'info':
+        return <Badge className="bg-blue-100 text-blue-800">Info</Badge>;
+      default:
+        return <Badge className="bg-gray-100 text-gray-800">Unknown</Badge>;
+    }
+  };
+
+  const formatTimestamp = (timestamp) => {
+    try {
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) {
+        return 'Unknown time';
+      }
+      
+      const now = new Date();
+      const diffInHours = Math.floor((now - date) / (1000 * 60 * 60));
+      
+      if (diffInHours < 1) {
+        return 'Just now';
+      } else if (diffInHours < 24) {
+        return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
+      } else {
+        return date.toLocaleDateString();
+      }
+    } catch (error) {
+      console.error('Error formatting timestamp:', error);
+      return 'Unknown time';
+    }
+  };
+
+  const clearAllNotifications = () => {
+    setNotifications([]);
+    localStorage.removeItem('nssNotifications');
+    toast({
+      title: "Notifications Cleared",
+      description: "All notifications have been cleared.",
+    });
+  };
+
   if (!userRole || !userName) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -158,51 +313,84 @@ const Settings = () => {
       <div className="space-y-6">
         <h1 className="text-2xl font-bold text-nss-primary">Settings</h1>
 
-        <Tabs defaultValue="account">
+        <Tabs defaultValue="notifications">
           <TabsList>
-            <TabsTrigger value="account">Account</TabsTrigger>
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
             <TabsTrigger value="security">Security</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="account" className="space-y-4">
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Account Settings</h2>
-              <div className="space-y-4 max-w-lg">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input id="name" defaultValue={userName} />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
-                  <Input
-                    id="role"
-                    value={
-                      userRole === "pc" ? "Program Coordinator" :
-                        userRole === "po" ? "Program Officer" :
-                          "Student Coordinator"
-                    }
-                    disabled
-                  />
-                </div>
-
-                <Button
-                  onClick={handleSaveSettings}
-                  className="mt-4 bg-nss-primary hover:bg-nss-dark"
-                >
-                  Save Changes
-                </Button>
-              </div>
-            </Card>
-          </TabsContent>
-
           <TabsContent value="notifications" className="space-y-4">
             <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Notification Preferences</h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold">Notifications</h2>
+                <div className="flex items-center space-x-2">
+                  <Badge className="bg-blue-100 text-blue-800">
+                    {notifications.length} notifications
+                  </Badge>
+                  {notifications.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={clearAllNotifications}
+                      className="text-red-600 border-red-600 hover:bg-red-50"
+                    >
+                      Clear All
+                    </Button>
+                  )}
+                </div>
+              </div>
+              
               <div className="space-y-4">
-                <p>Configure how you want to receive notifications.</p>
-                {/* Notification settings will be added here */}
+                {loading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="mt-2 text-muted-foreground">Loading notifications...</p>
+                  </div>
+                ) : notifications.length > 0 ? (
+                  <div className="space-y-3">
+                    {notifications.map((notification) => (
+                      <div
+                        key={notification.id}
+                        className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex-shrink-0 mt-1">
+                          {getNotificationIcon(notification.type, notification.status)}
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-medium text-gray-900">
+                              {notification.title}
+                            </h3>
+                            <div className="flex items-center space-x-2">
+                              {getStatusBadge(notification.status)}
+                              <span className="text-xs text-gray-500">
+                                {formatTimestamp(notification.timestamp)}
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-sm text-gray-600 mt-1">
+                            {notification.message}
+                          </p>
+                          <div className="flex items-center mt-2 text-xs text-gray-500">
+                            <Calendar className="h-3 w-3 mr-1" />
+                            {notification.date && notification.date instanceof Date 
+                              ? notification.date.toLocaleDateString() 
+                              : new Date().toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No notifications</h3>
+                    <p className="text-gray-500">
+                      You're all caught up! New notifications will appear here.
+                    </p>
+                  </div>
+                )}
               </div>
             </Card>
           </TabsContent>

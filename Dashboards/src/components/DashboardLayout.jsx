@@ -15,11 +15,10 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
-import { Bell, LogOut, Settings, User, Clock } from "lucide-react";
+import { LogOut, Settings, User, Clock } from "lucide-react";
 
 const DashboardLayout = ({ children, userRole, userName, userEmail }) => {
   const navigate = useNavigate();
-  const [notifications, setNotifications] = useState(2);
   const [sessionTimeLeft, setSessionTimeLeft] = useState(30 * 60); // 30 minutes in seconds
 
   useEffect(() => {
@@ -105,15 +104,6 @@ const DashboardLayout = ({ children, userRole, userName, userEmail }) => {
                 <Clock className="h-3 w-3 mr-1" style={{ color: "#1e40af" }} />
                 Session: {formatTime(sessionTimeLeft)}
               </div>
-
-              <Button variant="outline" size="icon" className="relative">
-                <Bell className="h-5 w-5" />
-                {notifications > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-nss-secondary text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
-                    {notifications}
-                  </span>
-                )}
-              </Button>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

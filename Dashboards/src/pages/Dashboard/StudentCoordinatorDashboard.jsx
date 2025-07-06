@@ -131,10 +131,6 @@ const StudentCoordinatorDashboard = ({ isHeadCoordinator = false }) => {
         <h1 className="text-xl sm:text-2xl font-bold text-blue-900">
           {isHeadCoordinator ? "Head Student Coordinator Dashboard" : "Student Coordinator Dashboard"}
         </h1>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-          <PlusCircle className="h-4 w-4 mr-2" />
-          Add Working Hours
-        </Button>
       </div>
       
       {/* Stats Section */}

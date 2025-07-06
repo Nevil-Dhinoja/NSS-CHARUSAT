@@ -133,6 +133,35 @@ const Approvals = () => {
       const data = await response.json();
       
       if (response.ok) {
+        // Find the working hours entry to get details for notification
+        const entry = workingHours.find(wh => wh.id === id);
+        
+        // Add notification for the student (this would ideally be sent to the student's account)
+        // For now, we'll add it to the current user's notifications as a demo
+        const addNotification = (notification) => {
+          const newNotification = {
+            ...notification,
+            id: `notification-${Date.now()}`,
+            timestamp: new Date()
+          };
+          
+          // Get existing notifications from localStorage
+          const existingNotifications = JSON.parse(localStorage.getItem('nssNotifications') || '[]');
+          const updatedNotifications = [newNotification, ...existingNotifications].slice(0, 50);
+          localStorage.setItem('nssNotifications', JSON.stringify(updatedNotifications));
+        };
+
+        if (entry) {
+          addNotification({
+            type: 'working_hours',
+            title: `Working Hours ${action === 'approve' ? 'Approved' : 'Rejected'}`,
+            message: `${entry.activity_name} - ${entry.hours} hours has been ${action === 'approve' ? 'approved' : 'rejected'} by ${userName}`,
+            status: action === 'approve' ? 'approved' : 'rejected',
+            date: new Date(entry.date),
+            priority: action === 'approve' ? 'low' : 'high'
+          });
+        }
+
         toast({
           title: `${action === "approve" ? "Approved" : "Rejected"}`,
           description: `Working hours have been ${action === "approve" ? "approved" : "rejected"} successfully.`,
