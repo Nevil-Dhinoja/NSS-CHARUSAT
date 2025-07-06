@@ -1,4 +1,3 @@
-
 import React from "react";
 import {
   Calendar,
@@ -87,11 +86,6 @@ export default function AppSidebar({ userRole, userName, userEmail }) {
           url: "/reports",
           icon: FileText,
         },
-        {
-          title: "Statistics",
-          url: "/statistics",
-          icon: BarChart3,
-        },
         ...commonItems.slice(1), // Profile, Settings
       ];
     } else if (userRole === "po") {
@@ -121,11 +115,6 @@ export default function AppSidebar({ userRole, userName, userEmail }) {
           title: "Reports",
           url: "/reports",
           icon: FileText,
-        },
-        {
-          title: "Statistics",
-          url: "/statistics",
-          icon: BarChart3,
         },
         ...commonItems.slice(1), // Profile, Settings
       ];

@@ -16,7 +16,6 @@ import Volunteers from "./pages/Volunteers.jsx";
 import Events from "./pages/Events.jsx";
 import Reports from "./pages/Reports.jsx";
 import WorkingHours from "./pages/WorkingHours.jsx";
-import Statistics from "./pages/Statistics.jsx";
 import Approvals from "./pages/Approvals.jsx";
 import Profile from "./pages/Profile.jsx";
 import Settings from "./pages/Settings.jsx";
@@ -40,7 +39,6 @@ const App = () => (
           <Route path="/events" element={<Events />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/working-hours" element={<WorkingHours />} />
-          <Route path="/statistics" element={<Statistics />} />
           <Route path="/approvals" element={<Approvals />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/settings" element={<Settings />} />

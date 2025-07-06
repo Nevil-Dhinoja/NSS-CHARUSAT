@@ -57,44 +57,24 @@ const Settings = () => {
     if (!token) return;
 
     try {
-      // Fetch working hours for notifications
-      const response = await fetch("http://localhost:5000/api/working-hours/my-hours", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      // Get existing notifications from localStorage only
+      const existingNotifications = JSON.parse(localStorage.getItem('nssNotifications') || '[]');
       
-      if (response.ok) {
-        const workingHours = await response.json();
-        
-        // Create notifications from working hours data
-        const workingHoursNotifications = workingHours.map(entry => ({
-          id: `wh-${entry.id}`,
-          type: 'working_hours',
-          title: `Working Hours ${entry.status === 'approved' ? 'Approved' : entry.status === 'rejected' ? 'Rejected' : 'Pending'}`,
-          message: `${entry.activity_name} - ${entry.hours} hours`,
-          status: entry.status,
-          date: new Date(entry.date),
-          timestamp: new Date(entry.created_at || entry.date),
-          priority: entry.status === 'rejected' ? 'high' : entry.status === 'pending' ? 'medium' : 'low'
-        }));
-
-        // Get existing notifications from localStorage
-        const existingNotifications = JSON.parse(localStorage.getItem('nssNotifications') || '[]');
-        
-        // Ensure all existing notifications have proper Date objects
-        const processedExistingNotifications = existingNotifications.map(notification => ({
-          ...notification,
-          date: notification.date ? new Date(notification.date) : new Date(),
-          timestamp: notification.timestamp ? new Date(notification.timestamp) : new Date()
-        }));
-        
-        // Combine and sort notifications by timestamp (newest first)
-        const allNotifications = [...workingHoursNotifications, ...processedExistingNotifications]
-          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-        setNotifications(allNotifications);
-      }
+      // Only show essential notifications (no working hours status updates)
+      const essentialNotifications = existingNotifications.filter(notification => 
+        notification.type === 'profile' || 
+        notification.type === 'security' ||
+        (notification.type === 'working_hours' && notification.title.includes('Submitted'))
+      );
+      
+      // Ensure all notifications have proper Date objects
+      const processedNotifications = essentialNotifications.map(notification => ({
+        ...notification,
+        date: notification.date ? new Date(notification.date) : new Date(),
+        timestamp: notification.timestamp ? new Date(notification.timestamp) : new Date()
+      }));
+      
+      setNotifications(processedNotifications);
     } catch (error) {
       console.error("Error fetching notifications:", error);
     } finally {
@@ -339,7 +319,7 @@ const Settings = () => {
                   )}
                 </div>
               </div>
-              
+
               <div className="space-y-4">
                 {loading ? (
                   <div className="text-center py-8">
@@ -364,20 +344,11 @@ const Settings = () => {
                             </h3>
                             <div className="flex items-center space-x-2">
                               {getStatusBadge(notification.status)}
-                              <span className="text-xs text-gray-500">
-                                {formatTimestamp(notification.timestamp)}
-                              </span>
                             </div>
                           </div>
                           <p className="text-sm text-gray-600 mt-1">
                             {notification.message}
                           </p>
-                          <div className="flex items-center mt-2 text-xs text-gray-500">
-                            <Calendar className="h-3 w-3 mr-1" />
-                            {notification.date && notification.date instanceof Date 
-                              ? notification.date.toLocaleDateString() 
-                              : new Date().toLocaleDateString()}
-                          </div>
                         </div>
                       </div>
                     ))}

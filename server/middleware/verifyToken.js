@@ -32,9 +32,6 @@ module.exports = (req, res, next) => {
             }
         }
 
-        // Add debugging for user object
-        console.log("🔍 Token verified, user object:", user);
-        
         req.user = user;
         next();
     });

@@ -115,6 +115,29 @@ const Profile = () => {
       setUserEmail(profileData.email);
       setIsEditing(false);
 
+      // Add notification for profile update
+      const addNotification = (notification) => {
+        const newNotification = {
+          ...notification,
+          id: `notification-${Date.now()}`,
+          timestamp: new Date()
+        };
+        
+        // Get existing notifications from localStorage
+        const existingNotifications = JSON.parse(localStorage.getItem('nssNotifications') || '[]');
+        const updatedNotifications = [newNotification, ...existingNotifications].slice(0, 50);
+        localStorage.setItem('nssNotifications', JSON.stringify(updatedNotifications));
+      };
+
+      addNotification({
+        type: 'profile',
+        title: 'Profile Updated',
+        message: 'Your profile information has been updated successfully',
+        status: 'success',
+        date: new Date(),
+        priority: 'low'
+      });
+
       toast({
         title: "Profile Updated",
         description: result.message || "Your profile has been updated successfully.",

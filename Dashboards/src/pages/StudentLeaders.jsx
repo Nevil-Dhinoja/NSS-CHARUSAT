@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,11 +22,21 @@ import {
   DialogTitle,
   DialogTrigger
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
   Users,
   Mail,
-  Phone,
   Calendar,
   User,
   Search,
@@ -42,11 +52,13 @@ const StudentLeaders = () => {
   const [userRole, setUserRole] = React.useState(null);
   const [userName, setUserName] = React.useState("");
   const [userEmail, setUserEmail] = React.useState("");
+  const [userDepartment, setUserDepartment] = React.useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterDepartment, setFilterDepartment] = useState("all");
   const [isAddingLeader, setIsAddingLeader] = useState(false);
   const [isEditingLeader, setIsEditingLeader] = useState(false);
   const [editingLeader, setEditingLeader] = useState(null);
+  const [studentLeaders, setStudentLeaders] = useState([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   React.useEffect(() => {
@@ -66,135 +78,328 @@ const StudentLeaders = () => {
       setUserRole(role);
       setUserName(user.name);
       setUserEmail(user.email);
+      setUserDepartment(user.department || "");
     } catch (err) {
       localStorage.clear();
       window.location.href = "/login";
     }
   }, []);
 
-  // Mock data for studentLeaders
-  const studentLeaders = [
-    {
-      id: 1,
-      name: "Ravi Kumar",
-      studentId: "CS21001",
-      email: "ravi.kumar@college.edu",
-      phone: "+91 9876543210",
-      department: "Computer Science",
-      year: "3rd Year",
-      position: "Head Student Coordinator",
-      joinDate: "2023-08-15"
-    },
-    {
-      id: 2,
-      name: "Priya Sharma",
-      studentId: "ME21002",
-      email: "priya.sharma@college.edu",
-      phone: "+91 9876543211",
-      department: "Mechanical Engineering",
-      year: "2nd Year",
-      position: "Student Coordinator",
-      joinDate: "2023-09-01"
-    },
-    {
-      id: 3,
-      name: "Amit Patel",
-      studentId: "EC21003",
-      email: "amit.patel@college.edu",
-      phone: "+91 9876543212",
-      department: "Electronics & Communication",
-      year: "3rd Year",
-      position: "Student Coordinator",
-      joinDate: "2023-08-20"
-    },
-    {
-      id: 4,
-      name: "Sneha Gupta",
-      studentId: "IT21004",
-      email: "sneha.gupta@college.edu",
-      phone: "+91 9876543213",
-      department: "Information Technology",
-      year: "2nd Year",
-      position: "Student Coordinator",
-      joinDate: "2023-09-10"
+  // Fetch student leaders when user data is loaded
+  React.useEffect(() => {
+    if (userRole && userDepartment) {
+      fetchStudentLeaders();
     }
-  ];
+  }, [userRole, userDepartment]);
+
+  const fetchStudentLeaders = async () => {
+    const token = localStorage.getItem("nssUserToken");
+    try {
+      // Fetch all student coordinators
+      const roleName = encodeURIComponent("Student Coordinator");
+      const response = await fetch(`http://localhost:5000/api/auth/users/${roleName}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Filter based on user role and department
+        let filteredLeaders;
+        if (userRole === "pc" || userRole === "program coordinator") {
+          // PC can see all departments
+          filteredLeaders = data;
+        } else if (userRole === "po" || userRole === "program officer") {
+          // PO can only see their department
+          filteredLeaders = data.filter(user => 
+            user.department_name === userDepartment || 
+            user.department_name === userDepartment + " Engineering"
+          );
+        } else {
+          // Default to CE for other roles
+          filteredLeaders = data.filter(user => 
+            user.department_name === "CE" || user.department_name === "Computer Engineering"
+          );
+        }
+        
+        setStudentLeaders(filteredLeaders);
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to fetch student leaders",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch student leaders",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const [newLeader, setNewLeader] = useState({
     name: "",
-    studentId: "",
+    loginId: "",
     email: "",
-    phone: "",
-    department: "",
-    year: "",
-    position: "Student Coordinator"
+    department: "CE", // Pre-fill with CE for PO users
+    position: "Student Coordinator" // Pre-fill position
   });
 
-  const handleAddLeader = () => {
-    console.log("Adding new leader:", newLeader);
-    toast({
-      title: "Student Leader Added",
-      description: "New student leader has been added successfully.",
-    });
-    setIsAddingLeader(false);
+  // Initialize form with user's department and position when adding
+  const initializeForm = () => {
+    const userStr = localStorage.getItem("nssUser");
+    const user = userStr ? JSON.parse(userStr) : {};
+    
     setNewLeader({
       name: "",
-      studentId: "",
+      loginId: "",
       email: "",
-      phone: "",
-      department: "",
-      year: "",
-      position: "Student Coordinator"
+      department: user.department || "CE", // Use logged-in user's department
+      position: "Student Coordinator" // Always set to Student Coordinator
     });
+  };
+
+  const handleAddLeader = async () => {
+    if (!newLeader.name || !newLeader.loginId || !newLeader.email || !newLeader.department) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all required fields.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const token = localStorage.getItem("nssUserToken");
+    if (!token) {
+      toast({
+        title: "Authentication Error",
+        description: "No token found. Please login again.",
+        variant: "destructive"
+      });
+      window.location.href = "/login";
+      return;
+    }
+
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/users/student-coordinator", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: newLeader.name,
+          login_id: newLeader.loginId,
+          email: newLeader.email,
+          department: newLeader.department
+        }),
+      });
+
+      if (response.status === 401) {
+        toast({
+          title: "Token Expired",
+          description: "Your session has expired. Please login again.",
+          variant: "destructive"
+        });
+        localStorage.clear();
+        window.location.href = "/login";
+        return;
+      }
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        toast({
+          title: "Student Leader Added",
+          description: `New student leader has been added successfully. Default password: ${data.defaultPassword}`,
+        });
+        setIsAddingLeader(false);
+        initializeForm();
+        fetchStudentLeaders(); // Refresh the list
+      } else {
+        throw new Error(data.error || "Failed to add student leader");
+      }
+    } catch (error) {
+      console.error("Add error:", error);
+      if (error.message.includes("Failed to fetch")) {
+        toast({
+          title: "Server Error",
+          description: "Cannot connect to server. Please make sure the backend is running.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
+    }
   };
 
   const handleEditLeader = (leader) => {
     setEditingLeader(leader);
     setNewLeader({
       name: leader.name,
-      studentId: leader.studentId,
+      loginId: leader.login_id || leader.loginId,
       email: leader.email,
-      phone: leader.phone,
-      department: leader.department,
-      year: leader.year,
-      position: leader.position
+      department: leader.department_name || leader.department,
+      position: "Student Coordinator"
     });
     setIsEditingLeader(true);
   };
 
-  const handleUpdateLeader = () => {
-    console.log("Updating leader:", editingLeader.id, newLeader);
-    toast({
-      title: "Student Leader Updated",
-      description: "Student leader information has been updated successfully.",
-    });
-    setIsEditingLeader(false);
-    setEditingLeader(null);
-    setNewLeader({
-      name: "",
-      studentId: "",
-      email: "",
-      phone: "",
-      department: "",
-      year: "",
-      position: "Student Coordinator"
-    });
+  const handleUpdateLeader = async () => {
+    if (!newLeader.name || !newLeader.loginId || !newLeader.email || !newLeader.department) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all required fields.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const token = localStorage.getItem("nssUserToken");
+    if (!token) {
+      toast({
+        title: "Authentication Error",
+        description: "No token found. Please login again.",
+        variant: "destructive"
+      });
+      window.location.href = "/login";
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/auth/users/student-coordinator/${editingLeader.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: newLeader.name,
+          login_id: newLeader.loginId,
+          email: newLeader.email,
+          department: newLeader.department
+        }),
+      });
+
+      if (response.status === 401) {
+        toast({
+          title: "Token Expired",
+          description: "Your session has expired. Please login again.",
+          variant: "destructive"
+        });
+        localStorage.clear();
+        window.location.href = "/login";
+        return;
+      }
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        toast({
+          title: "Student Leader Updated",
+          description: "Student leader information has been updated successfully.",
+        });
+        setIsEditingLeader(false);
+        setEditingLeader(null);
+        initializeForm();
+        fetchStudentLeaders(); // Refresh the list
+      } else {
+        throw new Error(data.error || "Failed to update student leader");
+      }
+    } catch (error) {
+      console.error("Update error:", error);
+      if (error.message.includes("Failed to fetch")) {
+        toast({
+          title: "Server Error",
+          description: "Cannot connect to server. Please make sure the backend is running.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
+    }
   };
 
-  const handleDeleteLeader = (leaderId, leaderName) => {
-    toast({
-      title: "Student Leader Removed",
-      description: `${leaderName} has been removed from student leaders.`,
-      variant: "destructive",
-    });
+  const handleDeleteLeader = async (leaderId, leaderName) => {
+    const token = localStorage.getItem("nssUserToken");
+    if (!token) {
+      toast({
+        title: "Authentication Error",
+        description: "No token found. Please login again.",
+        variant: "destructive"
+      });
+      window.location.href = "/login";
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/auth/users/student-coordinator/${leaderId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.status === 401) {
+        toast({
+          title: "Token Expired",
+          description: "Your session has expired. Please login again.",
+          variant: "destructive"
+        });
+        localStorage.clear();
+        window.location.href = "/login";
+        return;
+      }
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        toast({
+          title: "Student Leader Removed",
+          description: `${leaderName} has been removed from student leaders.`,
+          variant: "destructive",
+        });
+        fetchStudentLeaders(); // Refresh the list
+      } else {
+        throw new Error(data.error || "Failed to delete student leader");
+      }
+    } catch (error) {
+      console.error("Delete error:", error);
+      if (error.message.includes("Failed to fetch")) {
+        toast({
+          title: "Server Error",
+          description: "Cannot connect to server. Please make sure the backend is running.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
+    }
   };
 
   const filteredLeaders = studentLeaders.filter(leader => {
     const matchesSearch = leader.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      leader.studentId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (leader.login_id || leader.loginId || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       leader.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesDepartment = filterDepartment === "all" || leader.department === filterDepartment;
-    return matchesSearch && matchesDepartment;
+    return matchesSearch;
   });
 
   const getPositionBadge = (position) => {
@@ -214,17 +419,14 @@ const StudentLeaders = () => {
     );
   }
 
-  const departments = [...new Set(studentLeaders.map(leader => leader.department))];
-
   return (
     <DashboardLayout userRole={userRole} userName={userName} userEmail={userEmail}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-nss-primary">Student Leaders</h1>
-            <p className="text-gray-600 mt-1">Manage NSS student coordinators and their activities</p>
-          </div>
+                      <div>
+              <h1 className="text-2xl font-bold text-nss-primary">Student Leaders</h1>
+            </div>
           <div className="flex gap-4">
             <div className="relative w-80">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -235,20 +437,13 @@ const StudentLeaders = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <select
-              value={filterDepartment}
-              onChange={(e) => setFilterDepartment(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md bg-white"
-            >
-              <option value="all">All Departments</option>
-              {departments.map(dept => (
-                <option key={dept} value={dept}>{dept}</option>
-              ))}
-            </select>
             {(userRole === "pc" || userRole === "po") && (
               <Dialog open={isAddingLeader} onOpenChange={setIsAddingLeader}>
                 <DialogTrigger asChild>
-                  <Button className="bg-nss-primary hover:bg-nss-dark">
+                  <Button 
+                    className="bg-nss-primary hover:bg-nss-dark"
+                    onClick={initializeForm}
+                  >
                     <PlusCircle className="h-4 w-4 mr-2" />
                     Add Leader
                   </Button>
@@ -257,7 +452,10 @@ const StudentLeaders = () => {
                   <DialogHeader>
                     <DialogTitle>Add New Student Leader</DialogTitle>
                     <DialogDescription>
-                      Add a new student coordinator to the NSS team.
+                      {userRole === "pc" || userRole === "program coordinator"
+                        ? "Add a new student coordinator to the NSS team."
+                        : `Add a new student coordinator to the ${userDepartment} department NSS team.`
+                      }
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
@@ -271,12 +469,12 @@ const StudentLeaders = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="studentId">Student ID</Label>
+                      <Label htmlFor="loginId">Login ID</Label>
                       <Input
-                        id="studentId"
-                        value={newLeader.studentId}
-                        onChange={(e) => setNewLeader({ ...newLeader, studentId: e.target.value })}
-                        placeholder="Enter student ID"
+                        id="loginId"
+                        value={newLeader.loginId}
+                        onChange={(e) => setNewLeader({ ...newLeader, loginId: e.target.value })}
+                        placeholder="Enter login ID"
                       />
                     </div>
                     <div className="space-y-2">
@@ -290,56 +488,43 @@ const StudentLeaders = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="phone">Phone</Label>
+                      <Label htmlFor="department">Department</Label>
                       <Input
-                        id="phone"
-                        value={newLeader.phone}
-                        onChange={(e) => setNewLeader({ ...newLeader, phone: e.target.value })}
-                        placeholder="Enter phone number"
+                        id="department"
+                        value={userRole === "pc" || userRole === "program coordinator" ? "" : newLeader.department}
+                        readOnly
+                        disabled
+                        className="bg-gray-100"
+                        placeholder={userRole === "pc" || userRole === "program coordinator" ? "Select department below" : ""}
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="department">Department</Label>
-                      <select
-                        id="department"
-                        value={newLeader.department}
-                        onChange={(e) => setNewLeader({ ...newLeader, department: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      >
-                        <option value="">Select Department</option>
-                        <option value="Computer Science">Computer Science</option>
-                        <option value="Mechanical Engineering">Mechanical Engineering</option>
-                        <option value="Electronics & Communication">Electronics & Communication</option>
-                        <option value="Information Technology">Information Technology</option>
-                        <option value="Civil Engineering">Civil Engineering</option>
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="year">Academic Year</Label>
-                      <select
-                        id="year"
-                        value={newLeader.year}
-                        onChange={(e) => setNewLeader({ ...newLeader, year: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      >
-                        <option value="">Select Year</option>
-                        <option value="1st Year">1st Year</option>
-                        <option value="2nd Year">2nd Year</option>
-                        <option value="3rd Year">3rd Year</option>
-                        <option value="4th Year">4th Year</option>
-                      </select>
-                    </div>
+                    {(userRole === "pc" || userRole === "program coordinator") && (
+                      <div className="space-y-2">
+                        <Label htmlFor="department-select">Select Department</Label>
+                        <select
+                          id="department-select"
+                          value={newLeader.department}
+                          onChange={(e) => setNewLeader({ ...newLeader, department: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        >
+                          <option value="">Select Department</option>
+                          <option value="CE">Computer Engineering</option>
+                          <option value="ME">Mechanical Engineering</option>
+                          <option value="EE">Electrical Engineering</option>
+                          <option value="IT">Information Technology</option>
+                          <option value="CSE">Computer Science Engineering</option>
+                        </select>
+                      </div>
+                    )}
                     <div className="md:col-span-2 space-y-2">
                       <Label htmlFor="position">Position</Label>
-                      <select
+                      <Input
                         id="position"
                         value={newLeader.position}
-                        onChange={(e) => setNewLeader({ ...newLeader, position: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      >
-                        <option value="Student Coordinator">Student Coordinator</option>
-                        <option value="Head Student Coordinator">Head Student Coordinator</option>
-                      </select>
+                        readOnly
+                        disabled
+                        className="bg-gray-100"
+                      />
                     </div>
                     <div className="md:col-span-2 flex justify-end gap-2">
                       <Button variant="outline" onClick={() => setIsAddingLeader(false)}>
@@ -376,12 +561,12 @@ const StudentLeaders = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-studentId">Student ID</Label>
+                <Label htmlFor="edit-loginId">Login ID</Label>
                 <Input
-                  id="edit-studentId"
-                  value={newLeader.studentId}
-                  onChange={(e) => setNewLeader({ ...newLeader, studentId: e.target.value })}
-                  placeholder="Enter student ID"
+                  id="edit-loginId"
+                  value={newLeader.loginId}
+                  onChange={(e) => setNewLeader({ ...newLeader, loginId: e.target.value })}
+                  placeholder="Enter login ID"
                 />
               </div>
               <div className="space-y-2">
@@ -395,56 +580,44 @@ const StudentLeaders = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-phone">Phone</Label>
+                <Label htmlFor="edit-department">Department</Label>
                 <Input
-                  id="edit-phone"
-                  value={newLeader.phone}
-                  onChange={(e) => setNewLeader({ ...newLeader, phone: e.target.value })}
-                  placeholder="Enter phone number"
+                  id="edit-department"
+                  value={userRole === "pc" || userRole === "program coordinator" ? "" : newLeader.department}
+                  readOnly
+                  disabled
+                  className="bg-gray-100"
+                  placeholder={userRole === "pc" || userRole === "program coordinator" ? "Select department below" : ""}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-department">Department</Label>
-                <select
-                  id="edit-department"
-                  value={newLeader.department}
-                  onChange={(e) => setNewLeader({ ...newLeader, department: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  <option value="">Select Department</option>
-                  <option value="Computer Science">Computer Science</option>
-                  <option value="Mechanical Engineering">Mechanical Engineering</option>
-                  <option value="Electronics & Communication">Electronics & Communication</option>
-                  <option value="Information Technology">Information Technology</option>
-                  <option value="Civil Engineering">Civil Engineering</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-year">Academic Year</Label>
-                <select
-                  id="edit-year"
-                  value={newLeader.year}
-                  onChange={(e) => setNewLeader({ ...newLeader, year: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  <option value="">Select Year</option>
-                  <option value="1st Year">1st Year</option>
-                  <option value="2nd Year">2nd Year</option>
-                  <option value="3rd Year">3rd Year</option>
-                  <option value="4th Year">4th Year</option>
-                </select>
-              </div>
+              {(userRole === "pc" || userRole === "program coordinator") && (
+                <div className="space-y-2">
+                  <Label htmlFor="edit-department-select">Select Department</Label>
+                  <select
+                    id="edit-department-select"
+                    value={newLeader.department}
+                    onChange={(e) => setNewLeader({ ...newLeader, department: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  >
+                    <option value="">Select Department</option>
+                    <option value="CE">Computer Engineering</option>
+                    <option value="ME">Mechanical Engineering</option>
+                    <option value="EE">Electrical Engineering</option>
+                    <option value="IT">Information Technology</option>
+                    <option value="CSE">Computer Science Engineering</option>
+                  </select>
+                </div>
+              )}
+              
               <div className="md:col-span-2 space-y-2">
                 <Label htmlFor="edit-position">Position</Label>
-                <select
+                <Input
                   id="edit-position"
                   value={newLeader.position}
-                  onChange={(e) => setNewLeader({ ...newLeader, position: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  <option value="Student Coordinator">Student Coordinator</option>
-                  <option value="Head Student Coordinator">Head Student Coordinator</option>
-                </select>
+                  readOnly
+                  disabled
+                  className="bg-gray-100"
+                />
               </div>
               <div className="md:col-span-2 flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setIsEditingLeader(false)}>
@@ -458,63 +631,22 @@ const StudentLeaders = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Users className="h-6 w-6 text-blue-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Leaders</p>
-                  <p className="text-2xl font-bold text-gray-900">{studentLeaders.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <GraduationCap className="h-6 w-6 text-purple-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Departments</p>
-                  <p className="text-2xl font-bold text-gray-900">{departments.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <User className="h-6 w-6 text-green-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Head Coordinators</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {studentLeaders.filter(l => l.position === "Head Student Coordinator").length}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
         {/* Student Leaders Table */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <Users className="mr-2 h-5 w-5" />
-              Student Leaders Directory
-            </CardTitle>
-            <CardDescription>
-              Manage NSS student coordinators and track their information
-            </CardDescription>
+                          <CardTitle className="flex items-center">
+                <Users className="mr-2 h-5 w-5" />
+                {userRole === "pc" || userRole === "program coordinator" 
+                  ? "All Department Student Leaders"
+                  : `${userDepartment} Department Student Leaders`
+                }
+              </CardTitle>
+              <CardDescription>
+                {userRole === "pc" || userRole === "program coordinator"
+                  ? "Manage all department NSS student coordinators"
+                  : `Manage ${userDepartment} department NSS student coordinators`
+                }
+              </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="rounded-md border">
@@ -529,68 +661,91 @@ const StudentLeaders = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredLeaders.map((leader) => (
-                    <TableRow key={leader.id}>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <Avatar className="h-10 w-10">
-                            <AvatarImage src="" />
-                            <AvatarFallback className="bg-blue-100 text-blue-600">
-                              {leader.name.split(" ").map(name => name[0]).join("")}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="ml-3">
-                            <div className="font-medium">{leader.name}</div>
-                            <div className="text-sm text-gray-500">{leader.studentId} • {leader.year}</div>
-                          </div>
-                        </div>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-4">
+                        Loading student leaders...
                       </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
+                    </TableRow>
+                  ) : filteredLeaders.length > 0 ? (
+                    filteredLeaders.map((leader) => (
+                      <TableRow key={leader.id}>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <Avatar className="h-10 w-10">
+                              <AvatarImage src="" />
+                              <AvatarFallback className="bg-blue-100 text-blue-600">
+                                {leader.name.split(" ").map(name => name[0]).join("")}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="ml-3">
+                                                              <div className="font-medium">{leader.name}</div>
+                                <div className="text-sm text-gray-500">
+                                  {leader.login_id || leader.loginId || "N/A"}
+                                </div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
                           <div className="flex items-center text-sm">
                             <Mail className="h-4 w-4 text-gray-400 mr-1" />
                             <span>{leader.email}</span>
                           </div>
-                          <div className="flex items-center text-sm">
-                            <Phone className="h-4 w-4 text-gray-400 mr-1" />
-                            <span>{leader.phone}</span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <GraduationCap className="h-4 w-4 text-gray-400 mr-1" />
+                            <span>{leader.department_name || leader.department || "CE"}</span>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <GraduationCap className="h-4 w-4 text-gray-400 mr-1" />
-                          <span>{leader.department}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>{getPositionBadge(leader.position)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex gap-2 justify-end">
-                          <Button
-                            onClick={() => handleEditLeader(leader)}
-                            variant="outline"
-                            size="sm"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          {(userRole === "pc" || userRole === "po") && (
+                        </TableCell>
+                        <TableCell>{getPositionBadge("Student Coordinator")}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex gap-2 justify-end">
                             <Button
-                              onClick={() => handleDeleteLeader(leader.id, leader.name)}
+                              onClick={() => handleEditLeader(leader)}
                               variant="outline"
                               size="sm"
-                              className="border-red-500 text-red-500 hover:bg-red-50"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Edit className="h-4 w-4" />
                             </Button>
+                                                      {(userRole === "pc" || userRole === "po") && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="border-red-500 text-red-500 hover:bg-red-50"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Student Leader</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to delete <strong>{leader.name}</strong>? This action cannot be undone and will remove their access to the system.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter className="flex flex-row justify-end gap-2">
+                                  <AlertDialogCancel className="!mt-0">Cancel</AlertDialogCancel>
+                                  <AlertDialogAction 
+                                    onClick={() => handleDeleteLeader(leader.id, leader.name)}
+                                    className="bg-red-600 hover:bg-red-700 border border-red-600 !mt-0"
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {filteredLeaders.length === 0 && (
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-4">
-                        No student leaders found matching your criteria.
+                        No CE department student leaders found.
                       </TableCell>
                     </TableRow>
                   )}

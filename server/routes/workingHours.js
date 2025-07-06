@@ -29,35 +29,25 @@ const jwt = require('jsonwebtoken');
 
 // Add working hours entry
 router.post('/addWorkingHours', verifyToken, (req, res) => {
-  console.log("🔍 addWorkingHours called");
-  console.log("🔍 Request body:", req.body);
-  console.log("🔍 User from token:", req.user);
   
   const { activity_name, date, start_time, end_time, description } = req.body;
   const user_id = req.user.id;
 
-  console.log("🔍 Extracted data:", { activity_name, date, start_time, end_time, description, user_id });
-
   if (!activity_name || !date || !start_time || !end_time) {
-    console.log("❌ Missing required fields");
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
   // Fetch department_id from assigned_users table
   const getDeptSql = 'SELECT department_id FROM assigned_users WHERE id = ? LIMIT 1';
-  console.log("🔍 Executing SQL:", getDeptSql, "with user_id:", user_id);
   
   db.query(getDeptSql, [user_id], (err, results) => {
     if (err) {
-      console.log("❌ Dept SQL error:", err);
       return res.status(500).json({ error: 'Database error', details: err.message });
     }
     if (!results || results.length === 0) {
-      console.log("❌ No assigned_user found for user_id:", user_id);
       return res.status(404).json({ error: 'User not found' });
     }
     const department_id = results[0].department_id;
-    console.log("✅ Found department_id:", department_id);
 
     const sql = `
       INSERT INTO working_hours 
@@ -65,17 +55,11 @@ router.post('/addWorkingHours', verifyToken, (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?)`;
 
     const values = [user_id, activity_name, date, start_time, end_time, description, department_id];
-    console.log("🔍 Executing insert SQL:", sql);
-    console.log("🔍 Values:", values);
 
     db.query(sql, values, (err, result) => {
       if (err) {
-        console.log("❌ Insert error:", err.message);
-        console.log("❌ Full error:", err);
         return res.status(500).json({ error: 'Database error', details: err.message });
       }
-
-      console.log("✅ Insert successful! ID:", result.insertId);
       res.status(200).json({ 
         message: 'Working hours added successfully',
         id: result.insertId 
@@ -129,35 +113,26 @@ router.get('/department/:department', verifyToken, (req, res) => {
 
 // Get working hours for current user's department (Program Officers only)
 router.get('/department/my', verifyToken, (req, res) => {
-  console.log("🔍 /department/my called");
-  console.log("🔍 User from token:", req.user);
-  
   // Accept both 'PO' and 'Program Officer' (case-insensitive)
   const role = (req.user.role || '').toLowerCase();
   if (role !== 'program officer' && role !== 'po' && role !== 'pc') {
-    console.log("❌ Access denied - user role:", req.user.role);
     return res.status(403).json({ error: 'Access denied. Only Program Officers and Program Coordinators can view working hours.' });
   }
 
   const user_id = req.user.id;
-  console.log("🔍 User ID:", user_id);
   
   // First get the user's department_id
   const getDeptSql = 'SELECT department_id FROM assigned_users WHERE id = ? LIMIT 1';
-  console.log("🔍 Executing SQL:", getDeptSql, "with user_id:", user_id);
   
   db.query(getDeptSql, [user_id], (err, deptResults) => {
     if (err) {
-      console.log("❌ Dept SQL error:", err);
       return res.status(500).json({ error: 'Database error', details: err.message });
     }
     if (!deptResults || deptResults.length === 0) {
-      console.log("❌ No assigned_user found for user_id:", user_id);
       return res.status(404).json({ error: 'User not found' });
     }
     
     const userDepartmentId = deptResults[0].department_id;
-    console.log("✅ Found department_id:", userDepartmentId);
     
     // Then get working hours for that department
     const sql = `
@@ -166,15 +141,11 @@ router.get('/department/my', verifyToken, (req, res) => {
       JOIN assigned_users au ON wh.user_id = au.id
       WHERE au.department_id = ?
       ORDER BY wh.date DESC, wh.created_at DESC`;
-
-    console.log("🔍 Executing working hours query with department_id:", userDepartmentId);
     
     db.query(sql, [userDepartmentId], (err, results) => {
       if (err) {
-        console.log("❌ Working hours query error:", err);
         return res.status(500).json({ error: 'Database error', details: err.message });
       }
-      console.log("✅ Found", results.length, "working hours entries");
       res.json(results);
     });
   });
@@ -182,15 +153,10 @@ router.get('/department/my', verifyToken, (req, res) => {
 
 // Get all working hours for approval (Program Officers and Coordinators only)
 router.get('/all', verifyToken, (req, res) => {
-  console.log("🔍 /all endpoint called");
-  console.log("🔍 User from token:", req.user);
-  
   // Accept both 'PO' and 'Program Officer' (case-insensitive)
   const role = (req.user.role || '').toLowerCase();
-  console.log("🔍 User role:", req.user.role, "Normalized role:", role);
   
   if (role !== 'program officer' && role !== 'po' && role !== 'pc') {
-    console.log("❌ Access denied - user role:", req.user.role);
     return res.status(403).json({ 
       error: 'Access denied. Only Program Officers and Program Coordinators can view all working hours.',
       userRole: req.user.role,
@@ -199,28 +165,22 @@ router.get('/all', verifyToken, (req, res) => {
   }
 
   const user_id = req.user.id;
-  console.log("🔍 User ID:", user_id);
   
   // For PO users, only show working hours from their department
   if (role === 'po' || role === 'program officer') {
-    console.log("🔍 PO user detected, getting department-specific data");
     // First get the PO's department
     const getDeptSql = 'SELECT department_id FROM assigned_users WHERE id = ? LIMIT 1';
-    console.log("🔍 Executing SQL:", getDeptSql, "with user_id:", user_id);
     
     db.query(getDeptSql, [user_id], (err, deptResults) => {
       if (err) {
-        console.log("❌ Dept SQL error:", err);
         return res.status(500).json({ error: 'Database error', details: err.message });
       }
       
       if (!deptResults || deptResults.length === 0) {
-        console.log("❌ No assigned_user found for user_id:", user_id);
         return res.status(404).json({ error: 'User not found' });
       }
       
       const userDepartmentId = deptResults[0].department_id;
-      console.log("✅ Found department_id:", userDepartmentId);
       
       // Get working hours only from PO's department
       const sql = `
@@ -230,20 +190,15 @@ router.get('/all', verifyToken, (req, res) => {
         LEFT JOIN departments d ON au.department_id = d.id
         WHERE au.department_id = ?
         ORDER BY wh.date DESC, wh.created_at DESC`;
-
-      console.log("🔍 Executing working hours query with department_id:", userDepartmentId);
       
       db.query(sql, [userDepartmentId], (err, results) => {
         if (err) {
-          console.log("❌ Working hours query error:", err);
           return res.status(500).json({ error: 'Database error', details: err.message });
         }
-        console.log("✅ Found", results.length, "working hours entries for department", userDepartmentId);
         res.json(results);
       });
     });
   } else {
-    console.log("🔍 PC user detected, getting all working hours");
     // For PC users, show all working hours
     const sql = `
       SELECT wh.*, au.name as student_name, au.department_id, d.name as department_name
@@ -251,15 +206,11 @@ router.get('/all', verifyToken, (req, res) => {
       JOIN assigned_users au ON wh.user_id = au.id
       LEFT JOIN departments d ON au.department_id = d.id
       ORDER BY wh.date DESC, wh.created_at DESC`;
-
-    console.log("🔍 Executing query for all working hours");
     
     db.query(sql, (err, results) => {
       if (err) {
-        console.log("❌ Working hours query error:", err);
         return res.status(500).json({ error: 'Database error', details: err.message });
       }
-      console.log("✅ Found", results.length, "working hours entries total");
       res.json(results);
     });
   }

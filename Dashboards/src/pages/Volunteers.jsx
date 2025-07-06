@@ -69,7 +69,7 @@ const Volunteers = () => {
     department: "",
     year: "",
     email: "",
-    phone: ""
+    contact: ""
   });
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -89,7 +89,9 @@ const Volunteers = () => {
       setUserName(user.name);
       setUserEmail(user.email);
       setUserDepartment(user.department);
-      setNewVolunteer((prev) => ({ ...prev, department: user.department }));
+      // For Student Coordinators, always set department to CE
+      const departmentForVolunteer = user.role?.toLowerCase() === "sc" ? "CE" : user.department;
+      setNewVolunteer((prev) => ({ ...prev, department: departmentForVolunteer }));
     } catch (err) {
       localStorage.clear();
       window.location.href = "/login";
@@ -99,12 +101,32 @@ const Volunteers = () => {
   const fetchVolunteers = async () => {
     setLoadingVolunteers(true);
     const token = localStorage.getItem("nssUserToken");
+    // Add department check for PO
+    if (userRole === "po" && (!userDepartment || userDepartment === "undefined")) {
+      toast({
+        title: "Error",
+        description: "Your department is not set. Please contact admin.",
+        variant: "destructive"
+      });
+      setLoadingVolunteers(false);
+      return;
+    }
+
     try {
-      // If user is Program Officer, fetch volunteers from CE department
-      // Otherwise, fetch all volunteers (for Program Coordinator)
-      const endpoint = userRole === "po" 
-        ? "http://localhost:5000/api/volunteers/department/CE"
-        : "http://localhost:5000/api/volunteers/all";
+      // For Student Coordinators (sc), fetch only CE department volunteers
+      // For Program Officers (po), fetch volunteers from their department
+      // For Program Coordinators (pc), fetch all volunteers
+      let endpoint;
+      if (userRole === "sc") {
+        endpoint = "http://localhost:5000/api/volunteers/department/CE";
+      } else if (userRole === "po") {
+        // For Program Officers, try their department first, fallback to CE if needed
+        endpoint = `http://localhost:5000/api/volunteers/department/${userDepartment}`;
+      } else {
+        endpoint = "http://localhost:5000/api/volunteers/all";
+      }
+
+
 
       const response = await fetch(endpoint, {
         headers: {
@@ -112,9 +134,39 @@ const Volunteers = () => {
         },
       });
       const data = await response.json();
+      
+
+      
       if (response.ok) {
-        setVolunteers(data);
+        // For Student Coordinators, double-check that we only have CE department volunteers
+        let filteredData = data;
+        if (userRole === "sc") {
+          filteredData = data.filter(volunteer => volunteer.department === "CE");
+        } else if (userRole === "po") {
+          // For Program Officers, filter to their department
+          filteredData = data.filter(volunteer => volunteer.department === userDepartment);
+        }
+        setVolunteers(filteredData);
       } else {
+        // For Program Officers, if department-specific API fails, try to get all and filter
+        if (userRole === "po" && response.status === 404) {
+          try {
+            const fallbackResponse = await fetch("http://localhost:5000/api/volunteers/all", {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+            const fallbackData = await fallbackResponse.json();
+            if (fallbackResponse.ok) {
+              const filteredData = fallbackData.filter(volunteer => volunteer.department === userDepartment);
+              setVolunteers(filteredData);
+              return;
+            }
+          } catch (fallbackError) {
+            // Fallback failed silently
+          }
+        }
+        
         toast({
           title: "Error",
           description: data.error || "Failed to fetch volunteers",
@@ -123,7 +175,6 @@ const Volunteers = () => {
         setVolunteers([]);
       }
     } catch (error) {
-      console.error("Fetch error:", error);
       toast({
         title: "Error",
         description: "Failed to fetch volunteers",
@@ -136,8 +187,31 @@ const Volunteers = () => {
   };
 
   useEffect(() => {
-    fetchVolunteers();
-  }, []);
+    if (userRole) {
+      fetchVolunteers();
+      // Also fetch available departments for debugging
+      if (userRole === "po") {
+        fetchAvailableDepartments();
+      }
+    }
+  }, [userRole, userDepartment]);
+
+  const fetchAvailableDepartments = async () => {
+    const token = localStorage.getItem("nssUserToken");
+    try {
+      const response = await fetch("http://localhost:5000/api/volunteers/departments", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        // Departments fetched successfully
+      }
+    } catch (error) {
+      // Error fetching departments
+    }
+  };
 
   const handleUploadVolunteers = () => {
     toast({
@@ -218,7 +292,7 @@ const Volunteers = () => {
         department: "",
         year: "",
         email: "",
-        phone: "",
+        contact: "",
       });
 
       // Optional: Refresh volunteer list from backend (once connected)
@@ -250,7 +324,7 @@ const Volunteers = () => {
       Department: v.department,
       Year: v.year,
       Email: v.email,
-      Phone: v.phone,
+      Phone: v.contact,
       "Joined On": v.joined_on ? new Date(v.joined_on).toLocaleDateString() : ""
     }));
     const worksheet = XLSX.utils.json_to_sheet(data);
@@ -330,7 +404,9 @@ const Volunteers = () => {
     <DashboardLayout userRole={userRole} userName={userName} userEmail={userEmail}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-nss-primary">Volunteers Management</h1>
+          <div>
+            <h1 className="text-2xl font-bold text-nss-primary">Volunteers Management</h1>
+          </div>
 
           <div className="flex space-x-2">
             <Dialog>
@@ -413,7 +489,7 @@ const Volunteers = () => {
                     <Label htmlFor="department">Department</Label>
                     <Input
                       id="department"
-                      value={userDepartment}
+                      value={userRole === "sc" ? "CE" : userDepartment}
                       readOnly
                       disabled
                     />
@@ -434,8 +510,8 @@ const Volunteers = () => {
                       <Input
                         id="phone"
                         placeholder="Enter phone number"
-                        value={newVolunteer.phone}
-                        onChange={(e) => setNewVolunteer({ ...newVolunteer, phone: e.target.value })}
+                        value={newVolunteer.contact}
+                        onChange={(e) => setNewVolunteer({ ...newVolunteer, contact: e.target.value })}
                       />
                     </div>
                   </div>
@@ -459,7 +535,7 @@ const Volunteers = () => {
               </div>
             </div>
             <CardDescription>
-              Manage and track all NSS volunteers across departments
+              Manage and track NSS volunteers
             </CardDescription>
           </CardHeader>
           <CardContent>
