@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Upload, Download, Filter, Users, UserPlus, Mail, Phone, Trash2 } from "lucide-react";
+import { Search, Upload, Download, Filter, Users, UserPlus, Mail, Phone, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -62,6 +62,8 @@ const Volunteers = () => {
   const [userDepartment, setUserDepartment] = useState("");
   const [volunteers, setVolunteers] = useState([]);
   const [loadingVolunteers, setLoadingVolunteers] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   const [newVolunteer, setNewVolunteer] = useState({
     name: "",
@@ -196,6 +198,29 @@ const Volunteers = () => {
     }
   }, [userRole, userDepartment]);
 
+  // Reset current page when search query or year filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedYear]);
+
+  // Pagination logic
+  const filteredVolunteers = volunteers.filter(volunteer => {
+    const matchesSearch = volunteer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         volunteer.student_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         volunteer.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesYear = !selectedYear || volunteer.year === selectedYear;
+    return matchesSearch && matchesYear;
+  });
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredVolunteers.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredVolunteers.length / itemsPerPage);
+
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
+  };
+
   const fetchAvailableDepartments = async () => {
     const token = localStorage.getItem("nssUserToken");
     try {
@@ -295,7 +320,8 @@ const Volunteers = () => {
         contact: "",
       });
 
-      // Optional: Refresh volunteer list from backend (once connected)
+      // Refresh volunteer list from backend
+      fetchVolunteers();
     } catch (error) {
       toast({
         title: "Add Failed",
@@ -304,18 +330,6 @@ const Volunteers = () => {
       });
     }
   };
-
-  // Filter volunteers based on criteria
-  const filteredVolunteers = volunteers.filter(
-    volunteer =>
-      (!selectedYear || volunteer.year?.toString().includes(selectedYear)) &&
-      (
-        volunteer.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        volunteer.student_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        volunteer.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        volunteer.department?.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-  );
 
   const handleExportExcel = () => {
     const data = filteredVolunteers.map(v => ({
@@ -593,8 +607,8 @@ const Volunteers = () => {
                         Loading volunteers...
                       </TableCell>
                     </TableRow>
-                  ) : filteredVolunteers.length > 0 ? (
-                    filteredVolunteers.map((volunteer) => (
+                  ) : currentItems.length > 0 ? (
+                    currentItems.map((volunteer) => (
                       <TableRow key={volunteer.id}>
                         <TableCell className="font-medium">{volunteer.name}</TableCell>
                         <TableCell>{volunteer.student_id}</TableCell>
@@ -655,6 +669,28 @@ const Volunteers = () => {
                   )}
                 </TableBody>
               </Table>
+            </div>
+
+            <div className="flex justify-end mt-4">
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  disabled={currentPage === 1}
+                  onClick={() => handlePageChange(currentPage - 1)}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-gray-600">{currentPage} of {totalPages}</span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  disabled={currentPage === totalPages}
+                  onClick={() => handlePageChange(currentPage + 1)}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

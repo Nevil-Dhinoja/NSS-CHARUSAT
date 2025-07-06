@@ -111,11 +111,6 @@ export default function AppSidebar({ userRole, userName, userEmail }) {
           url: "/approvals",
           icon: CheckSquare,
         },
-        {
-          title: "Reports",
-          url: "/reports",
-          icon: FileText,
-        },
         ...commonItems.slice(1), // Profile, Settings
       ];
     } else if (userRole === "sc") {

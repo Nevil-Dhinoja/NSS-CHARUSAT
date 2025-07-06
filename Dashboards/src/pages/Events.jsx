@@ -513,64 +513,7 @@ Date: _________________
     }
   };
 
-  const handleDeleteRejectedReport = async (eventId, eventName) => {
-    const token = localStorage.getItem("nssUserToken");
-    if (!token) {
-      toast({
-        title: "Authentication Error",
-        description: "No token found. Please login again.",
-        variant: "destructive"
-      });
-      window.location.href = "/login";
-      return;
-    }
 
-    try {
-      const response = await fetch(`http://localhost:5000/api/events/reports/event/${eventId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.status === 401) {
-        toast({
-          title: "Token Expired",
-          description: "Your session has expired. Please login again.",
-          variant: "destructive"
-        });
-        localStorage.clear();
-        window.location.href = "/login";
-        return;
-      }
-
-      const data = await response.json();
-      
-      if (response.ok) {
-        toast({
-          title: "Report Deleted",
-          description: `Rejected report for "${eventName}" has been deleted successfully.`,
-        });
-        fetchEvents(); // Refresh the list
-      } else {
-        throw new Error(data.error || "Failed to delete rejected report");
-      }
-    } catch (error) {
-      if (error.message.includes("Failed to fetch")) {
-        toast({
-          title: "Server Error",
-          description: "Cannot connect to server. Please make sure the backend is running.",
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: error.message,
-          variant: "destructive"
-        });
-      }
-    }
-  };
 
   const filteredEvents = events.filter(event => {
     const matchesSearch = event.event_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -769,18 +712,18 @@ Date: _________________
                   placeholder="Enter event description..."
                   rows={3}
                 />
-              </div>
+                  </div>
               <div className="md:col-span-2 flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setIsEditingEvent(false)}>
                   Cancel
                 </Button>
                 <Button onClick={handleUpdateEvent} className="bg-nss-primary hover:bg-nss-dark">
                   Update Event
-                </Button>
+                  </Button>
+                </div>
               </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
 
 
 
@@ -937,39 +880,7 @@ Date: _________________
                               </Button>
                             )}
                             
-                            {/* Delete Rejected Report button for SC and PO users */}
-                            {((userRole === 'sc' || userRole === 'student coordinator') || 
-                              (userRole === 'po' || userRole === 'program officer')) && (
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="border-red-500 text-red-500 hover:bg-red-50"
-                                    title="Delete Rejected Report"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete Rejected Report</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Are you sure you want to delete the rejected report for <strong>{event.event_name}</strong>? This action cannot be undone.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter className="flex flex-row justify-end gap-2">
-                                    <AlertDialogCancel className="!mt-0">Cancel</AlertDialogCancel>
-                                    <AlertDialogAction 
-                                      onClick={() => handleDeleteRejectedReport(event.id, event.event_name)}
-                                      className="bg-red-600 hover:bg-red-700 border border-red-600 !mt-0"
-                                    >
-                                      Delete Report
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            )}
+
                           </div>
                         </TableCell>
                       </TableRow>

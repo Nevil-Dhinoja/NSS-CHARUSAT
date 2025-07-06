@@ -2,12 +2,12 @@ import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
-  Calendar, 
   CheckCircle, 
   Clock, 
   FileText, 
   Users,
-  Loader2
+  Loader2,
+  Calendar
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -21,9 +21,9 @@ const ProgramOfficerDashboard = () => {
   });
   
   const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [recentReports, setRecentReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const [recentEvents, setRecentEvents] = useState([]);
 
   const fetchDashboardData = async () => {
     const token = localStorage.getItem("nssUserToken");
@@ -72,37 +72,94 @@ const ProgramOfficerDashboard = () => {
           wh.status === "pending" && wh.department_name === userDepartment
         );
 
-        // Update stats
-        setStats({
-          volunteers: departmentVolunteers.length || 0,
-          pendingApprovals: pendingWorkingHours.length || 0,
-          upcomingEvents: 2, // Mock data as requested
-          completedEvents: 15 // Mock data as requested
+        // Fetch reports to count pending reports
+        const reportsResForStats = await fetch("http://localhost:5000/api/events/reports", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        let pendingReports = 0;
+        if (reportsResForStats.ok) {
+          const reportsData = await reportsResForStats.json();
+          // Filter reports by PO's department and pending status
+          pendingReports = reportsData.filter(report => 
+            report.department_name === userDepartment && 
+            report.status === "pending"
+          ).length;
+        }
+
+        // Fetch events for stats
+        const eventsResponse = await fetch("http://localhost:5000/api/events/all", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         });
 
-        // Format pending approvals for display
-        const formattedApprovals = pendingWorkingHours.slice(0, 5).map(wh => ({
+        if (eventsResponse.ok) {
+          const eventsData = await eventsResponse.json();
+          
+          // Filter events by PO's department
+          const departmentEvents = eventsData.filter(event => 
+            event.department_name === userDepartment
+          );
+
+          // Count upcoming and completed events
+          const upcomingEvents = departmentEvents.filter(event => 
+            event.status === "upcoming"
+          ).length;
+          
+          const completedEvents = departmentEvents.filter(event => 
+            event.status === "completed"
+          ).length;
+
+          // Update stats
+          setStats({
+            volunteers: departmentVolunteers.length || 0,
+            pendingApprovals: (pendingWorkingHours.length + pendingReports) || 0,
+            upcomingEvents: upcomingEvents,
+            completedEvents: completedEvents
+          });
+        } else {
+          // Update stats without events data
+          setStats({
+            volunteers: departmentVolunteers.length || 0,
+            pendingApprovals: (pendingWorkingHours.length + pendingReports) || 0,
+            upcomingEvents: 0,
+            completedEvents: 0
+          });
+        }
+
+        // Format all working hours for display (show 4-5 rows) - both pending and processed
+        const allWorkingHours = workingHoursData.filter(wh => 
+          wh.department_name === userDepartment
+        );
+        
+        const formattedApprovals = allWorkingHours.slice(0, 5).map(wh => ({
           id: wh.id,
           type: "Working Hours",
           name: wh.student_name || "Unknown",
           date: wh.date,  
           department: wh.department_name || userDepartment,
           hours: wh.hours,
-          activity: wh.activity_name
+          activity: wh.activity_name,
+          status: wh.status
         }));
 
         setPendingApprovals(formattedApprovals);
-      }
 
-      // Fetch recent events
-      const eventsRes = await fetch("http://localhost:5000/api/events/recent", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (eventsRes.ok) {
-        const eventsData = await eventsRes.json();
-        setRecentEvents(eventsData);
-      } else {
-        setRecentEvents([]);
+        // Fetch recent reports
+        const reportsRes = await fetch("http://localhost:5000/api/events/reports", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (reportsRes.ok) {
+          const reportsData = await reportsRes.json();
+          // Filter reports by PO's department and show 4-5 recent ones
+          const departmentReports = reportsData.filter(report => 
+            report.department_name === userDepartment
+          );
+          setRecentReports(departmentReports.slice(0, 5));
+        } else {
+          setRecentReports([]);
+        }
       }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -111,7 +168,7 @@ const ProgramOfficerDashboard = () => {
         description: "Failed to fetch dashboard data",
         variant: "destructive"
       });
-      setRecentEvents([]);
+      setRecentReports([]);
     } finally {
       setLoading(false);
     }
@@ -120,6 +177,19 @@ const ProgramOfficerDashboard = () => {
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case "pending":
+        return <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Pending</span>;
+      case "approved":
+        return <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">Approved</span>;
+      case "rejected":
+        return <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">Rejected</span>;
+      default:
+        return <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Unknown</span>;
+    }
+  };
 
   const handleApproval = async (id, action) => {
     const token = localStorage.getItem("nssUserToken");
@@ -222,10 +292,10 @@ const ProgramOfficerDashboard = () => {
         </div>
       </div>
       
-      {/* Pending Approvals Section */}
+      {/* Working Hours Section */}
       <Card className="p-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg sm:text-xl font-semibold text-blue-900">Pending Approvals</h2>
+          <h2 className="text-lg sm:text-xl font-semibold text-blue-900">Recent Working Hours</h2>
           <Link to="/approvals" className="text-blue-600 hover:underline text-sm">View All</Link>
         </div>
         
@@ -233,45 +303,74 @@ const ProgramOfficerDashboard = () => {
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
-              <span className="ml-2">Loading approvals...</span>
+              <span className="ml-2">Loading working hours...</span>
             </div>
           ) : pendingApprovals.length > 0 ? (
+          <table className="w-full">
+            <thead className="bg-muted text-blue-900">
+              <tr>
+                <th className="p-2 text-left">Name</th>
+                  <th className="p-2 text-left">Activity</th>
+                  <th className="p-2 text-left">Hours</th>
+                <th className="p-2 text-left">Date</th>
+                  <th className="p-2 text-left">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pendingApprovals.map((item) => (
+                <tr key={item.id} className="border-b hover:bg-muted/50">
+                  <td className="p-2">{item.name}</td>
+                    <td className="p-2">{item.activity}</td>
+                    <td className="p-2">{item.hours} hrs</td>
+                  <td className="p-2">{new Date(item.date).toLocaleDateString()}</td>
+                    <td className="p-2">{getStatusBadge(item.status)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              {loading ? "Loading working hours..." : "No working hours found."}
+            </div>
+          )}
+        </div>
+      </Card>
+      
+      {/* Recent Reports Section */}
+      <Card className="p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg sm:text-xl font-semibold text-blue-900">Recent Reports</h2>
+          <Link to="/approvals" className="text-blue-600 hover:underline text-sm">View All</Link>
+        </div>
+        
+        <div className="overflow-x-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+              <span className="ml-2">Loading reports...</span>
+              </div>
+          ) : recentReports.length > 0 ? (
             <table className="w-full">
               <thead className="bg-muted text-blue-900">
                 <tr>
-                  <th className="p-2 text-left">Type</th>
-                  <th className="p-2 text-left">Name</th>
-                  <th className="p-2 text-left">Activity</th>
-                  <th className="p-2 text-left">Hours</th>
-                  <th className="p-2 text-left">Date</th>
-                  <th className="p-2 text-center">Actions</th>
+                  <th className="p-2 text-left">Event Name</th>
+                  <th className="p-2 text-left">Submitted By</th>
+                  <th className="p-2 text-left">Event Date</th>
+                  <th className="p-2 text-left">Status</th>
+                  <th className="p-2 text-left">Submitted On</th>
                 </tr>
               </thead>
               <tbody>
-                {pendingApprovals.map((item) => (
-                  <tr key={item.id} className="border-b hover:bg-muted/50">
-                    <td className="p-2">{item.type}</td>
-                    <td className="p-2">{item.name}</td>
-                    <td className="p-2">{item.activity}</td>
-                    <td className="p-2">{item.hours} hrs</td>
-                    <td className="p-2">{new Date(item.date).toLocaleDateString()}</td>
-                    <td className="p-2 flex justify-center space-x-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="border-green-500 text-green-500 hover:bg-green-50"
-                        onClick={() => handleApproval(item.id, "approve")}
-                      >
-                        <CheckCircle className="h-4 w-4 mr-1" /> Approve
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="border-red-500 text-red-500 hover:bg-red-50"
-                        onClick={() => handleApproval(item.id, "reject")}
-                      >
-                        Reject
-                      </Button>
+                {recentReports.map((report) => (
+                  <tr key={report.id} className="border-b hover:bg-muted/50">
+                    <td className="p-2 font-medium">{report.event_name}</td>
+                    <td className="p-2">{report.submitted_by_name || report.submitted_by}</td>
+                    <td className="p-2">
+                      {report.event_date ? new Date(report.event_date).toLocaleDateString() : 'N/A'}
+                    </td>
+                    <td className="p-2">{getStatusBadge(report.status)}</td>
+                    <td className="p-2">
+                      {new Date(report.created_at).toLocaleDateString()}
                     </td>
                   </tr>
                 ))}
@@ -279,47 +378,7 @@ const ProgramOfficerDashboard = () => {
             </table>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
-              No pending approvals found.
-            </div>
-          )}
-        </div>
-      </Card>
-      
-      {/* Recent Events Section */}
-      <Card className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg sm:text-xl font-semibold text-blue-900">Recent Events</h2>
-          <Link to="/events" className="text-blue-600 hover:underline text-sm">View All</Link>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {loading ? (
-            <div className="col-span-full flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
-              <span className="ml-2">Loading events...</span>
-            </div>
-          ) : recentEvents.length > 0 ? (
-            recentEvents.slice(0, 5).map((event) => (
-              <div key={event.id} className="nss-dashboard-card flex flex-col p-4">
-                <div className="flex items-center mb-2">
-                  <Calendar className="h-4 w-4 text-blue-600 mr-2" />
-                  <span className="font-medium text-blue-900">{event.event_name}</span>
-                </div>
-                <div className="text-sm text-muted-foreground mb-1">
-                  {event.event_date ? new Date(event.event_date).toLocaleDateString() : 'N/A'}
-                </div>
-                <div className="text-xs text-gray-500 truncate mb-2">{event.description}</div>
-                <div className="flex-1" />
-                <div className="flex items-center justify-between mt-2">
-                  <span className="text-xs text-gray-500">{event.status}</span>
-                  <Link to={`/events/${event.id}`} className="text-blue-600 text-xs hover:underline">
-                    View Details
-                  </Link>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="col-span-full text-center py-8 text-muted-foreground">
-              No recent events found.
+              {loading ? "Loading reports..." : "No reports found."}
             </div>
           )}
         </div>

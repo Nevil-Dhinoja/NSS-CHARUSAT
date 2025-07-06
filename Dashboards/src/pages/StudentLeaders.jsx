@@ -305,12 +305,12 @@ const StudentLeaders = () => {
       const data = await response.json();
       
       if (response.ok) {
-        toast({
-          title: "Student Leader Updated",
-          description: "Student leader information has been updated successfully.",
-        });
-        setIsEditingLeader(false);
-        setEditingLeader(null);
+    toast({
+      title: "Student Leader Updated",
+      description: "Student leader information has been updated successfully.",
+    });
+    setIsEditingLeader(false);
+    setEditingLeader(null);
         initializeForm();
         fetchStudentLeaders(); // Refresh the list
       } else {
@@ -368,11 +368,11 @@ const StudentLeaders = () => {
       const data = await response.json();
       
       if (response.ok) {
-        toast({
-          title: "Student Leader Removed",
-          description: `${leaderName} has been removed from student leaders.`,
-          variant: "destructive",
-        });
+    toast({
+      title: "Student Leader Removed",
+      description: `${leaderName} has been removed from student leaders.`,
+      variant: "destructive",
+    });
         fetchStudentLeaders(); // Refresh the list
       } else {
         throw new Error(data.error || "Failed to delete student leader");
@@ -424,9 +424,9 @@ const StudentLeaders = () => {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-                      <div>
-              <h1 className="text-2xl font-bold text-nss-primary">Student Leaders</h1>
-            </div>
+          <div>
+            <h1 className="text-2xl font-bold text-nss-primary">Student Leaders</h1>
+          </div>
           <div className="flex gap-4">
             <div className="relative w-80">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -499,22 +499,22 @@ const StudentLeaders = () => {
                       />
                     </div>
                     {(userRole === "pc" || userRole === "program coordinator") && (
-                      <div className="space-y-2">
+                    <div className="space-y-2">
                         <Label htmlFor="department-select">Select Department</Label>
-                        <select
+                      <select
                           id="department-select"
-                          value={newLeader.department}
-                          onChange={(e) => setNewLeader({ ...newLeader, department: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                        >
-                          <option value="">Select Department</option>
+                        value={newLeader.department}
+                        onChange={(e) => setNewLeader({ ...newLeader, department: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      >
+                        <option value="">Select Department</option>
                           <option value="CE">Computer Engineering</option>
                           <option value="ME">Mechanical Engineering</option>
                           <option value="EE">Electrical Engineering</option>
                           <option value="IT">Information Technology</option>
                           <option value="CSE">Computer Science Engineering</option>
-                        </select>
-                      </div>
+                      </select>
+                    </div>
                     )}
                     <div className="md:col-span-2 space-y-2">
                       <Label htmlFor="position">Position</Label>
@@ -591,22 +591,22 @@ const StudentLeaders = () => {
                 />
               </div>
               {(userRole === "pc" || userRole === "program coordinator") && (
-                <div className="space-y-2">
+              <div className="space-y-2">
                   <Label htmlFor="edit-department-select">Select Department</Label>
-                  <select
+                <select
                     id="edit-department-select"
-                    value={newLeader.department}
-                    onChange={(e) => setNewLeader({ ...newLeader, department: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  >
-                    <option value="">Select Department</option>
+                  value={newLeader.department}
+                  onChange={(e) => setNewLeader({ ...newLeader, department: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                >
+                  <option value="">Select Department</option>
                     <option value="CE">Computer Engineering</option>
                     <option value="ME">Mechanical Engineering</option>
                     <option value="EE">Electrical Engineering</option>
                     <option value="IT">Information Technology</option>
                     <option value="CSE">Computer Science Engineering</option>
-                  </select>
-                </div>
+                </select>
+              </div>
               )}
               
               <div className="md:col-span-2 space-y-2">
@@ -634,19 +634,19 @@ const StudentLeaders = () => {
         {/* Student Leaders Table */}
         <Card>
           <CardHeader>
-                          <CardTitle className="flex items-center">
-                <Users className="mr-2 h-5 w-5" />
+            <CardTitle className="flex items-center">
+              <Users className="mr-2 h-5 w-5" />
                 {userRole === "pc" || userRole === "program coordinator" 
                   ? "All Department Student Leaders"
                   : `${userDepartment} Department Student Leaders`
                 }
-              </CardTitle>
-              <CardDescription>
+            </CardTitle>
+            <CardDescription>
                 {userRole === "pc" || userRole === "program coordinator"
                   ? "Manage all department NSS student coordinators"
                   : `Manage ${userDepartment} department NSS student coordinators`
                 }
-              </CardDescription>
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="rounded-md border">
@@ -669,55 +669,55 @@ const StudentLeaders = () => {
                     </TableRow>
                   ) : filteredLeaders.length > 0 ? (
                     filteredLeaders.map((leader) => (
-                      <TableRow key={leader.id}>
-                        <TableCell>
-                          <div className="flex items-center">
-                            <Avatar className="h-10 w-10">
-                              <AvatarImage src="" />
-                              <AvatarFallback className="bg-blue-100 text-blue-600">
-                                {leader.name.split(" ").map(name => name[0]).join("")}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="ml-3">
-                                                              <div className="font-medium">{leader.name}</div>
+                    <TableRow key={leader.id}>
+                      <TableCell>
+                        <div className="flex items-center">
+                          <Avatar className="h-10 w-10">
+                            <AvatarImage src="" />
+                            <AvatarFallback className="bg-blue-100 text-blue-600">
+                              {leader.name.split(" ").map(name => name[0]).join("")}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="ml-3">
+                            <div className="font-medium">{leader.name}</div>
                                 <div className="text-sm text-gray-500">
                                   {leader.login_id || leader.loginId || "N/A"}
                                 </div>
-                            </div>
                           </div>
-                        </TableCell>
-                        <TableCell>
+                        </div>
+                      </TableCell>
+                      <TableCell>
                           <div className="flex items-center text-sm">
                             <Mail className="h-4 w-4 text-gray-400 mr-1" />
                             <span>{leader.email}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center">
-                            <GraduationCap className="h-4 w-4 text-gray-400 mr-1" />
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center">
+                          <GraduationCap className="h-4 w-4 text-gray-400 mr-1" />
                             <span>{leader.department_name || leader.department || "CE"}</span>
-                          </div>
-                        </TableCell>
+                        </div>
+                      </TableCell>
                         <TableCell>{getPositionBadge("Student Coordinator")}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex gap-2 justify-end">
-                            <Button
-                              onClick={() => handleEditLeader(leader)}
-                              variant="outline"
-                              size="sm"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                                                      {(userRole === "pc" || userRole === "po") && (
+                      <TableCell className="text-right">
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            onClick={() => handleEditLeader(leader)}
+                            variant="outline"
+                            size="sm"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          {(userRole === "pc" || userRole === "po") && (
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="border-red-500 text-red-500 hover:bg-red-50"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-red-500 text-red-500 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
@@ -738,9 +738,9 @@ const StudentLeaders = () => {
                               </AlertDialogContent>
                             </AlertDialog>
                           )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
+                        </div>
+                      </TableCell>
+                    </TableRow>
                     ))
                   ) : (
                     <TableRow>

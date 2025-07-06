@@ -3,6 +3,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -13,6 +14,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
   CheckCircle,
@@ -22,8 +34,21 @@ import {
   User,
   Search,
   FileText,
-  Users
+  Users,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Download
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 const Approvals = () => {
   const [userRole, setUserRole] = React.useState(null);
@@ -32,7 +57,14 @@ const Approvals = () => {
   const [userDepartment, setUserDepartment] = React.useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [workingHours, setWorkingHours] = useState([]);
+  const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingReports, setLoadingReports] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [isApproving, setIsApproving] = useState(false);
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [approvalComments, setApprovalComments] = useState("");
   const { toast } = useToast();
 
   const fetchWorkingHours = async () => {
@@ -92,6 +124,149 @@ const Approvals = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchReports = async () => {
+    const token = localStorage.getItem("nssUserToken");
+    try {
+      const response = await fetch("http://localhost:5000/api/events/reports", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setReports(data);
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to fetch reports",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch reports",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingReports(false);
+    }
+  };
+
+  const handleApproveReport = (report) => {
+    setSelectedReport(report);
+    setApprovalComments("");
+    setIsApproving(true);
+  };
+
+  const handleRejectReport = (report) => {
+    setSelectedReport(report);
+    setApprovalComments("");
+    setIsApproving(true);
+  };
+
+  const submitReportApproval = async (status) => {
+    if (!selectedReport) return;
+
+    const token = localStorage.getItem("nssUserToken");
+    if (!token) {
+      toast({
+        title: "Authentication Error",
+        description: "No token found. Please login again.",
+        variant: "destructive"
+      });
+      window.location.href = "/login";
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/events/reports/${selectedReport.id}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          status: status,
+          comments: approvalComments
+        }),
+      });
+
+      if (response.status === 401) {
+        toast({
+          title: "Token Expired",
+          description: "Your session has expired. Please login again.",
+          variant: "destructive"
+        });
+        localStorage.clear();
+        window.location.href = "/login";
+        return;
+      }
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        toast({
+          title: `Report ${status}`,
+          description: `Report has been ${status} successfully.`,
+        });
+        setIsApproving(false);
+        setSelectedReport(null);
+        setApprovalComments("");
+        fetchReports(); // Refresh the list
+      } else {
+        throw new Error(data.error || `Failed to ${status} report`);
+      }
+    } catch (error) {
+      if (error.message.includes("Failed to fetch")) {
+        toast({
+          title: "Server Error",
+          description: "Cannot connect to server. Please make sure the backend is running.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  const downloadReport = async (reportId) => {
+    const token = localStorage.getItem("nssUserToken");
+    try {
+      const response = await fetch(`http://localhost:5000/api/events/reports/${reportId}/download`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `report-${reportId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to download report");
+      }
+    } catch (error) {
+      toast({
+        title: "Download Failed",
+        description: error.message,
+        variant: "destructive"
+      });
     }
   };
 
@@ -189,6 +364,59 @@ const Approvals = () => {
     }
   };
 
+  // Use real reports data instead of mock data for event approvals
+  const eventApprovals = userRole === "po" ? 
+    reports.filter(report => report.department_name === userDepartment) : 
+    reports;
+  
+  const getStatusBadge = (status) => {
+    if (!status) return <Badge variant="secondary">Unknown</Badge>;
+    
+    const statusLower = status.toLowerCase();
+    switch (statusLower) {
+      case "pending":
+        return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">Pending</Badge>;
+      case "approved":
+        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Approved</Badge>;
+      case "rejected":
+        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Rejected</Badge>;
+      case "submitted":
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Submitted</Badge>;
+      case "under_review":
+        return <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">Under Review</Badge>;
+      case "draft":
+        return <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">Draft</Badge>;
+      case "completed":
+        return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Completed</Badge>;
+      case "cancelled":
+        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Cancelled</Badge>;
+      default:
+        return <Badge variant="secondary">{String(status)}</Badge>;
+    }
+  };
+
+  const filteredEventApprovals = eventApprovals.filter(
+    approval =>
+      (approval.event_name && approval.event_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      ((approval.submitted_by_name || approval.submitted_by) && (approval.submitted_by_name || approval.submitted_by).toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const filteredWorkingHoursApprovals = workingHours.filter(
+    approval =>
+      (approval.student_name && approval.student_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (approval.activity_name && approval.activity_name.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  // Pagination logic for working hours
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredWorkingHoursApprovals.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredWorkingHoursApprovals.length / itemsPerPage);
+
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
+  };
+
   React.useEffect(() => {
     const token = localStorage.getItem("nssUserToken");
     const userStr = localStorage.getItem("nssUser");
@@ -208,60 +436,19 @@ const Approvals = () => {
       setUserEmail(user.email);
       setUserDepartment(user.department || "");
       fetchWorkingHours();
+      if (role === "po" || role === "pc") {
+        fetchReports();
+      }
     } catch (err) {
       localStorage.clear();
       window.location.href = "/login";
     }
   }, []);
 
-  // Mock data for event approvals (keeping this for now)
-  const eventApprovals = [
-    {
-      id: 1,
-      title: "Blood Donation Camp",
-      student: "Priya Sharma",
-      department: "Computer Science",
-      date: "2023-12-15",
-      status: "pending",
-      description: "Blood donation camp at college premises",
-      submittedDate: "2023-12-10"
-    },
-    {
-      id: 2,
-      title: "Tree Plantation Drive",
-      student: "Ravi Kumar",
-      department: "Mechanical Engineering",
-      date: "2023-12-20",
-      status: "approved",
-      description: "Environmental awareness and tree plantation",
-      submittedDate: "2023-12-08"
-    }
-  ];
-
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case "pending":
-        return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">Pending</Badge>;
-      case "approved":
-        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Approved</Badge>;
-      case "rejected":
-        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Rejected</Badge>;
-      default:
-        return <Badge variant="secondary">Unknown</Badge>;
-    }
-  };
-
-  const filteredEventApprovals = eventApprovals.filter(
-    approval =>
-      approval.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      approval.student.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const filteredWorkingHoursApprovals = workingHours.filter(
-    approval =>
-      (approval.student_name && approval.student_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (approval.activity_name && approval.activity_name.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  // Reset current page when search query changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   if (!userRole || !userName) {
     return (
@@ -283,7 +470,7 @@ const Approvals = () => {
             <h1 className="text-2xl font-bold text-nss-primary">Approval Management</h1>
             <p className="text-gray-600 mt-1">
               {userRole === 'po' ? 
-                'Review and manage working hours approvals for your department' :
+                'Review and manage pending reports and working hours approvals for your department' :
                 'Review and manage working hours approvals'
               }
             </p>
@@ -310,8 +497,8 @@ const Approvals = () => {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Pending</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {eventApprovals.filter(a => a.status === "pending").length +
-                      workingHours.filter(a => a.status === "pending").length}
+                    {eventApprovals.filter(a => a.status && a.status.toLowerCase() === "pending").length +
+                      workingHours.filter(a => a.status && a.status.toLowerCase() === "pending").length}
                   </p>
                 </div>
               </div>
@@ -327,8 +514,7 @@ const Approvals = () => {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Approved</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {eventApprovals.filter(a => a.status === "approved").length +
-                      workingHours.filter(a => a.status === "approved").length}
+                    {workingHours.filter(a => a.status && a.status.toLowerCase() === "approved").length}
                   </p>
                 </div>
               </div>
@@ -344,8 +530,7 @@ const Approvals = () => {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Rejected</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {eventApprovals.filter(a => a.status === "rejected").length +
-                      workingHours.filter(a => a.status === "rejected").length}
+                    {workingHours.filter(a => a.status && a.status.toLowerCase() === "rejected").length}
                   </p>
                 </div>
               </div>
@@ -361,7 +546,10 @@ const Approvals = () => {
               Event Report Approvals
             </CardTitle>
             <CardDescription>
-              Review student event reports and proposals ({filteredEventApprovals.length})
+              {userRole === 'po' ? 
+                `Review event reports from your department - pending, approved, and rejected (${filteredEventApprovals.length})` :
+                `Review student event reports and proposals (${filteredEventApprovals.length})`
+              }
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -378,62 +566,85 @@ const Approvals = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredEventApprovals.map((approval) => (
-                    <TableRow key={approval.id}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{approval.title}</div>
-                          <div className="text-sm text-gray-500">{approval.description}</div>
+                  {loadingReports ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-4">
+                        <div className="flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                          Loading reports...
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src="" />
-                            <AvatarFallback className="bg-blue-100 text-blue-600 text-xs">
-                              {approval.student.split(" ").map(name => name[0]).join("")}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="ml-2">
-                            <div className="text-sm font-medium">{approval.student}</div>
+                    </TableRow>
+                  ) : filteredEventApprovals.length > 0 ? (
+                    filteredEventApprovals.map((approval) => (
+                      <TableRow key={approval.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{approval.event_name}</div>
+                            <div className="text-sm text-gray-500">{approval.description}</div>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm">{approval.department}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center text-sm">
-                          <Calendar className="mr-1 h-4 w-4 text-gray-400" />
-                          {new Date(approval.date).toLocaleDateString()}
-                        </div>
-                      </TableCell>
-                      <TableCell>{getStatusBadge(approval.status)}</TableCell>
-                      <TableCell className="text-right">
-                        {approval.status === "pending" && (
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src="" />
+                              <AvatarFallback className="bg-blue-100 text-blue-600 text-xs">
+                                {(approval.submitted_by_name || approval.submitted_by)?.split(" ").map(name => name[0]).join("") || "U"}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="ml-2">
+                              <div className="text-sm font-medium">{approval.submitted_by_name || approval.submitted_by || "Unknown"}</div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm">{approval.department_name}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center text-sm">
+                            <Calendar className="mr-1 h-4 w-4 text-gray-400" />
+                            {approval.event_date ? new Date(approval.event_date).toLocaleDateString() : 'N/A'}
+                          </div>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(approval.status)}</TableCell>
+                        <TableCell className="text-right">
                           <div className="flex space-x-2 justify-end">
-                            <Button
-                              size="sm"
-                              onClick={() => handleApproval(approval.id, "approve")}
-                              className="bg-green-600 hover:bg-green-700"
-                            >
-                              <CheckCircle className="h-4 w-4" />
-                            </Button>
+                            {(approval.status && approval.status.toLowerCase() === "pending") && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleApproveReport(approval)}
+                                  className="bg-green-600 hover:bg-green-700"
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleRejectReport(approval)}
+                                  className="border-red-500 text-red-500 hover:bg-red-50"
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleApproval(approval.id, "reject")}
-                              className="border-red-500 text-red-500 hover:bg-red-50"
+                              onClick={() => downloadReport(approval.id)}
+                              className="border-blue-500 text-blue-500 hover:bg-blue-50"
                             >
-                              <XCircle className="h-4 w-4" />
+                              <Download className="h-4 w-4" />
                             </Button>
                           </div>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {filteredEventApprovals.length === 0 && (
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-4">
-                        No event approvals found.
+                        {reports.length === 0 
+                          ? "No reports found. Students need to submit reports first."
+                          : "No reports found for the selected filters."
+                        }
                       </TableCell>
                     </TableRow>
                   )}
@@ -446,16 +657,20 @@ const Approvals = () => {
         {/* Working Hours Approvals */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <Clock className="mr-2 h-5 w-5" />
-              Working Hours Approvals
-            </CardTitle>
-            <CardDescription>
-              {userRole === 'po' ? 
-                `Review student working hours submissions from your department (${filteredWorkingHoursApprovals.length})` :
-                `Review student working hours submissions (${filteredWorkingHoursApprovals.length})`
-              }
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center">
+                  <Clock className="mr-2 h-5 w-5" />
+                  Working Hours Approvals
+                </CardTitle>
+                <CardDescription>
+                  {userRole === 'po' ? 
+                    `Review student working hours submissions from your department (${filteredWorkingHoursApprovals.length})` :
+                    `Review student working hours submissions (${filteredWorkingHoursApprovals.length})`
+                  }
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="rounded-md border">
@@ -482,7 +697,7 @@ const Approvals = () => {
                       </TableCell>
                     </TableRow>
                   ) : filteredWorkingHoursApprovals.length > 0 ? (
-                    filteredWorkingHoursApprovals.map((approval) => (
+                    currentItems.map((approval) => (
                       <TableRow key={approval.id}>
                         <TableCell>
                           <div className="flex items-center">
@@ -513,25 +728,27 @@ const Approvals = () => {
                         </TableCell>
                         <TableCell>{getStatusBadge(approval.status)}</TableCell>
                         <TableCell className="text-right">
-                          {approval.status === "pending" && (
-                            <div className="flex space-x-2 justify-end">
-                              <Button
-                                size="sm"
-                                onClick={() => handleApproval(approval.id, "approve")}
-                                className="bg-green-600 hover:bg-green-700"
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleApproval(approval.id, "reject")}
-                                className="border-red-500 text-red-500 hover:bg-red-50"
-                              >
-                                <XCircle className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          )}
+                          <div className="flex space-x-2 justify-end">
+                            {(approval.status && approval.status.toLowerCase() === "pending") && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleApproval(approval.id, "approve")}
+                                  className="bg-green-600 hover:bg-green-700"
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleApproval(approval.id, "reject")}
+                                  className="border-red-500 text-red-500 hover:bg-red-50"
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -548,8 +765,83 @@ const Approvals = () => {
                 </TableBody>
               </Table>
             </div>
+            {filteredWorkingHoursApprovals.length > itemsPerPage && (
+              <div className="flex justify-end mt-4">
+                <div className="flex items-center space-x-2">
+                  <Button
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm text-gray-600">{currentPage} of {totalPages}</span>
+                  <Button
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
+
+        {/* Report Approval Dialog */}
+        <Dialog open={isApproving} onOpenChange={setIsApproving}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {selectedReport ? `Review Report: ${selectedReport.event_name}` : "Review Report"}
+              </DialogTitle>
+              <DialogDescription>
+                Please review the report and provide comments if needed.
+              </DialogDescription>
+            </DialogHeader>
+            {selectedReport && (
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="comments">Comments (Optional)</Label>
+                  <Textarea
+                    id="comments"
+                    placeholder="Add any comments or feedback..."
+                    value={approvalComments}
+                    onChange={(e) => setApprovalComments(e.target.value)}
+                    rows={3}
+                  />
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsApproving(false);
+                      setSelectedReport(null);
+                      setApprovalComments("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => submitReportApproval("rejected")}
+                    className="border-red-500 text-red-500 hover:bg-red-50"
+                  >
+                    Reject
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => submitReportApproval("approved")}
+                    className="border-green-500 text-green-500 hover:bg-green-50"
+                  >
+                    Approve
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

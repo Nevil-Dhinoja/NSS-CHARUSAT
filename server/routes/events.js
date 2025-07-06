@@ -626,85 +626,78 @@ router.delete('/reports/:id', verifyToken, (req, res) => {
   });
 });
 
-// Delete rejected report by event ID (for SC and PO users)
-router.delete('/reports/event/:eventId', verifyToken, (req, res) => {
-  const { eventId } = req.params;
+// Delete report by PO/PC (from their department)
+router.delete('/reports/admin-delete/:id', verifyToken, (req, res) => {
+  const { id } = req.params;
   const userId = req.user.id;
   const userRole = req.user.role?.toLowerCase();
   
-  if (userRole !== 'sc' && userRole !== 'student coordinator' && userRole !== 'po' && userRole !== 'program officer') {
-    return res.status(403).json({ error: 'Access denied. Only Student Coordinators and Program Officers can delete rejected reports.' });
+  // Only PO and PC can delete reports
+  if (userRole !== 'po' && userRole !== 'program officer' && userRole !== 'pc' && userRole !== 'program coordinator') {
+    return res.status(403).json({ error: 'Access denied. Only Program Officers and Program Coordinators can delete reports.' });
   }
   
-  // Check if report exists and belongs to the user (for SC) or is from their department (for PO)
-  let checkSql;
-  let params;
-  
-  if (userRole === 'sc' || userRole === 'student coordinator') {
-    // SC can only delete their own rejected reports
-    checkSql = `
-      SELECT er.*, e.event_name 
-      FROM event_reports er
-      LEFT JOIN events e ON er.event_id = e.id
-      WHERE er.event_id = ? AND er.submitted_by_id = ? AND er.status = 'rejected'
-    `;
-    params = [eventId, userId];
-  } else {
-    // PO can delete rejected reports from their department
-    checkSql = `
-      SELECT er.*, e.event_name, e.department_id 
-      FROM event_reports er
-      LEFT JOIN events e ON er.event_id = e.id
-      WHERE er.event_id = ? AND er.status = 'rejected'
-    `;
-    params = [eventId];
-  }
-  
-  db.query(checkSql, params, (err, reportResults) => {
-    if (err) {
-      return res.status(500).json({ error: 'Database error', details: err.message });
-    }
+  if (userRole === 'po' || userRole === 'program officer') {
+    // For PO users, check if they can delete this specific report
+    const getDeptSql = 'SELECT department_id FROM assigned_users WHERE id = ? LIMIT 1';
     
-    if (reportResults.length === 0) {
-      return res.status(404).json({ error: 'Rejected report not found or you do not have permission to delete it.' });
-    }
-    
-    const report = reportResults[0];
-    
-    // For PO, check if report is from their department
-    if (userRole === 'po' || userRole === 'program officer') {
-      const userSql = 'SELECT department_id FROM assigned_users WHERE id = ?';
-      db.query(userSql, [userId], (err, userResults) => {
+    db.query(getDeptSql, [userId], (err, deptResults) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error', details: err.message });
+      }
+      
+      if (!deptResults || deptResults.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      const userDepartmentId = deptResults[0].department_id;
+      
+      // Check if the report belongs to PO's department
+      const checkSql = `
+        SELECT er.id FROM event_reports er
+        LEFT JOIN events e ON er.event_id = e.id
+        WHERE er.id = ? AND e.department_id = ?
+      `;
+      
+      db.query(checkSql, [id, userDepartmentId], (err, checkResults) => {
         if (err) {
           return res.status(500).json({ error: 'Database error', details: err.message });
         }
         
-        if (userResults.length === 0 || userResults[0].department_id !== report.department_id) {
-          return res.status(403).json({ error: 'Access denied. You can only delete rejected reports from your department.' });
+        if (checkResults.length === 0) {
+          return res.status(403).json({ error: 'Access denied. You can only delete reports from your department.' });
         }
         
         // Delete the report
-        const deleteSql = 'DELETE FROM event_reports WHERE event_id = ? AND status = "rejected"';
-        db.query(deleteSql, [eventId], (err, result) => {
+        const deleteSql = 'DELETE FROM event_reports WHERE id = ?';
+        db.query(deleteSql, [id], (err, result) => {
           if (err) {
             return res.status(500).json({ error: 'Database error', details: err.message });
           }
-          
-          res.json({ message: 'Rejected report deleted successfully' });
+
+          if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Report not found' });
+          }
+
+          res.json({ message: 'Report deleted successfully' });
         });
       });
-    } else {
-      // Delete the report for SC
-      const deleteSql = 'DELETE FROM event_reports WHERE event_id = ? AND submitted_by_id = ? AND status = "rejected"';
-      db.query(deleteSql, [eventId, userId], (err, result) => {
-        if (err) {
-          return res.status(500).json({ error: 'Database error', details: err.message });
-        }
-        
-        res.json({ message: 'Rejected report deleted successfully' });
-      });
-    }
-  });
+    });
+  } else {
+    // For PC users, allow deleting any report
+    const deleteSql = 'DELETE FROM event_reports WHERE id = ?';
+    db.query(deleteSql, [id], (err, result) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error', details: err.message });
+      }
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: 'Report not found' });
+      }
+
+      res.json({ message: 'Report deleted successfully' });
+    });
+  }
 });
 
 module.exports = router; 

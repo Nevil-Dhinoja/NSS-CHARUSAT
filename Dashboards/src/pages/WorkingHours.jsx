@@ -479,18 +479,18 @@ const WorkingHours = () => {
           priority: 'medium'
         });
 
-        toast({
-          title: "Working Hours Added",
+    toast({
+      title: "Working Hours Added",
           description: `Entry for ${hours.toFixed(2)} hours has been submitted for approval.`,
-        });
+    });
 
-        setNewEntry({
-          activity: "",
-          date: "",
-          startTime: "",
-          endTime: "",
-          description: ""
-        });
+    setNewEntry({
+      activity: "",
+      date: "",
+      startTime: "",
+      endTime: "",
+      description: ""
+    });
         
         setDialogOpen(false);
         fetchWorkingHours(); // Refresh the list

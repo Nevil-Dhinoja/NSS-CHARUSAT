@@ -504,4 +504,79 @@ router.delete('/delete/:id', verifyToken, (req, res) => {
     res.json({ message: 'Working hours deleted successfully' });
   });
 });
+
+// Delete working hours entry by PO/PC (from their department)
+router.delete('/admin-delete/:id', verifyToken, (req, res) => {
+  const { id } = req.params;
+  const user_id = req.user.id;
+  const userRole = req.user.role?.toLowerCase();
+
+  // Only PO and PC can delete working hours
+  if (userRole !== 'po' && userRole !== 'program officer' && userRole !== 'pc' && userRole !== 'program coordinator') {
+    return res.status(403).json({ error: 'Access denied. Only Program Officers and Program Coordinators can delete working hours.' });
+  }
+
+  if (userRole === 'po' || userRole === 'program officer') {
+    // For PO users, check if they can delete this specific working hours entry
+    const getDeptSql = 'SELECT department_id FROM assigned_users WHERE id = ? LIMIT 1';
+    
+    db.query(getDeptSql, [user_id], (err, deptResults) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error', details: err.message });
+      }
+      
+      if (!deptResults || deptResults.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      const userDepartmentId = deptResults[0].department_id;
+      
+      // Check if the working hours entry belongs to PO's department
+      const checkSql = `
+        SELECT wh.id FROM working_hours wh
+        JOIN assigned_users au ON wh.user_id = au.id
+        WHERE wh.id = ? AND au.department_id = ?
+      `;
+      
+      db.query(checkSql, [id, userDepartmentId], (err, checkResults) => {
+        if (err) {
+          return res.status(500).json({ error: 'Database error', details: err.message });
+        }
+        
+        if (checkResults.length === 0) {
+          return res.status(403).json({ error: 'Access denied. You can only delete working hours from your department.' });
+        }
+        
+        // Delete the working hours entry
+        const deleteSql = 'DELETE FROM working_hours WHERE id = ?';
+        db.query(deleteSql, [id], (err, result) => {
+          if (err) {
+            return res.status(500).json({ error: 'Database error', details: err.message });
+          }
+
+          if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Working hours entry not found' });
+          }
+
+          res.json({ message: 'Working hours deleted successfully' });
+        });
+      });
+    });
+  } else {
+    // For PC users, allow deleting any working hours entry
+    const deleteSql = 'DELETE FROM working_hours WHERE id = ?';
+    db.query(deleteSql, [id], (err, result) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error', details: err.message });
+      }
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: 'Working hours entry not found' });
+      }
+
+      res.json({ message: 'Working hours deleted successfully' });
+    });
+  }
+});
+
 module.exports = router; 

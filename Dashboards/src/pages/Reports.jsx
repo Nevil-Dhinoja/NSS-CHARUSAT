@@ -22,17 +22,6 @@ import {
   DialogTitle,
   DialogTrigger
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
   FileText,
@@ -46,7 +35,9 @@ import {
   BarChart3,
   Upload,
   CheckCircle,
-  XCircle
+  XCircle,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -59,6 +50,8 @@ const Reports = () => {
   const [isApproving, setIsApproving] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
   const [approvalComments, setApprovalComments] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
   const { toast } = useToast();
 
   React.useEffect(() => {
@@ -71,8 +64,8 @@ const Reports = () => {
     try {
       const user = JSON.parse(userStr);
       const role = user.role ? user.role.toLowerCase() : "";
-      // Allow PO and SC users to access reports page
-      if (role !== "po" && role !== "program officer" && role !== "sc" && role !== "student coordinator") {
+      // Allow only SC users to access reports page (PO users should use Approvals page)
+      if (role !== "sc" && role !== "student coordinator") {
         window.location.href = "/dashboard";
         return;
       }
@@ -105,7 +98,7 @@ const Reports = () => {
         const data = await response.json();
         setReports(data);
       } else {
-        toast({
+    toast({
           title: "Error",
           description: "Failed to fetch reports",
           variant: "destructive"
@@ -222,36 +215,52 @@ const Reports = () => {
         },
       });
 
+      if (response.status === 401) {
+        toast({
+          title: "Token Expired",
+          description: "Your session has expired. Please login again.",
+          variant: "destructive"
+        });
+        localStorage.clear();
+        window.location.href = "/login";
+        return;
+      }
+
       if (response.ok) {
+        // Create a blob from the response
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `report-${reportId}.pdf`;
+        a.download = `report_${reportId}.pdf`; // or get filename from response headers
         document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        toast({
+          title: "Success",
+          description: "Report downloaded successfully",
+        });
       } else {
         const data = await response.json();
         throw new Error(data.error || "Failed to download report");
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleViewReport = (report) => {
-    // For now, just show a toast with report info
-    // In the future, you could open a modal with report details
+      if (error.message.includes("Failed to fetch")) {
+        toast({
+          title: "Server Error",
+          description: "Cannot connect to server. Please make sure the backend is running.",
+          variant: "destructive"
+        });
+      } else {
     toast({
-      title: "Report Details",
-      description: `Event: ${report.event_name}, Status: ${report.status}, Submitted: ${new Date(report.created_at).toLocaleDateString()}`,
-    });
+          title: "Error",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
+    }
   };
 
   const handleDeleteReport = async (report) => {
@@ -295,6 +304,16 @@ const Reports = () => {
         variant: "destructive"
       });
     }
+  };
+
+  // Pagination logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = reports.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(reports.length / itemsPerPage);
+
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
   };
 
   const getStatusBadge = (status) => {
@@ -383,26 +402,26 @@ const Reports = () => {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    reports.map((report) => (
+                    currentItems.map((report) => (
                       <TableRow key={report.id}>
                         <TableCell>
                           <div className="font-medium">{report.event_name}</div>
                         </TableCell>
                         {isPO && (
-                          <TableCell>
+                      <TableCell>
                             <div className="flex items-center text-sm">
                               <User className="mr-1 h-4 w-4 text-gray-400" />
                               {report.submitted_by_name || report.submitted_by}
-                            </div>
-                          </TableCell>
+                        </div>
+                      </TableCell>
                         )}
-                        <TableCell>
-                          <div className="flex items-center text-sm">
-                            <Calendar className="mr-1 h-4 w-4 text-gray-400" />
+                      <TableCell>
+                        <div className="flex items-center text-sm">
+                          <Calendar className="mr-1 h-4 w-4 text-gray-400" />
                             {report.event_date ? new Date(report.event_date).toLocaleDateString() : 'N/A'}
-                          </div>
-                        </TableCell>
-                        <TableCell>{getStatusBadge(report.status)}</TableCell>
+                        </div>
+                      </TableCell>
+                      <TableCell>{getStatusBadge(report.status)}</TableCell>
                         <TableCell>
                           {new Date(report.created_at).toLocaleDateString()}
                         </TableCell>
@@ -419,16 +438,17 @@ const Reports = () => {
                             </div>
                           </TableCell>
                         )}
-                        <TableCell className="text-right">
-                          <div className="flex gap-2 justify-end">
+                      <TableCell className="text-right">
+                        <div className="flex gap-2 justify-end">
                             {isPO ? (
                               <>
-                                <Button
+                            <Button
                                   onClick={() => downloadReport(report.id)}
                                   variant="outline"
-                                  size="sm"
-                                >
-                                  <Download className="h-4 w-4" />
+                              size="sm"
+                            >
+                              <Download className="h-4 w-4" />
+                                  Download
                                 </Button>
                                 
                                 {report.status === 'pending' && (
@@ -453,17 +473,8 @@ const Reports = () => {
                                 )}
                               </>
                             ) : (
-                              // SC actions - only view and delete (if pending or rejected)
+                              // SC actions - only delete (if pending or rejected)
                               <>
-                                <Button
-                                  onClick={() => handleViewReport(report)}
-                                  variant="outline"
-                                  size="sm"
-                                >
-                                  <FileText className="h-4 w-4" />
-                                  View
-                                </Button>
-                                
                                 {['pending', 'rejected'].includes(report.status) && (
                                   <Button
                                     onClick={() => handleDeleteReport(report)}
@@ -473,18 +484,37 @@ const Reports = () => {
                                   >
                                     <XCircle className="h-4 w-4" />
                                     Delete
-                                  </Button>
+                            </Button>
                                 )}
                               </>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
                     ))
                   )}
                 </TableBody>
               </Table>
             </div>
+            {reports.length > 0 && (
+              <div className="mt-4 flex items-center justify-center">
+                <Button
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="mx-2">{currentPage} of {totalPages}</span>
+                <Button
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -527,7 +557,8 @@ const Reports = () => {
                 </Button>
                 <Button 
                   onClick={() => submitApproval('approved')}
-                  className="bg-green-600 hover:bg-green-700"
+                  variant="outline"
+                  className="border-green-500 text-green-500 hover:bg-green-50"
                 >
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Approve
@@ -536,6 +567,7 @@ const Reports = () => {
             </div>
           </DialogContent>
         </Dialog>
+
       </div>
     </DashboardLayout>
   );

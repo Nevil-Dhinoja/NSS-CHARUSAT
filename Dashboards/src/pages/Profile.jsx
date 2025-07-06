@@ -112,8 +112,8 @@ const Profile = () => {
       }
 
       setUserName(profileData.name);
-      setUserEmail(profileData.email);
-      setIsEditing(false);
+    setUserEmail(profileData.email);
+    setIsEditing(false);
 
       // Add notification for profile update
       const addNotification = (notification) => {
@@ -138,10 +138,10 @@ const Profile = () => {
         priority: 'low'
       });
 
-      toast({
-        title: "Profile Updated",
+    toast({
+      title: "Profile Updated",
         description: result.message || "Your profile has been updated successfully.",
-      });
+    });
     } catch (error) {
       console.error('Error updating profile:', error);
       toast({
@@ -350,13 +350,13 @@ const Profile = () => {
                                          <Label htmlFor="institute" className="flex items-center">
                        <Calendar className="mr-1 h-4 w-4" />
                        Institute
-                     </Label>
-                     <Input
+                    </Label>
+                    <Input
                        id="institute"
                        value={profileData.institute_name || ""}
                        disabled={true}
                        className="bg-gray-50"
-                     />
+                    />
                   </div>
                 </div>
               </CardContent>
