@@ -1,5 +1,4 @@
-
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -12,26 +11,118 @@ import {
   Users 
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 const StudentCoordinatorDashboard = ({ isHeadCoordinator = false }) => {
-  // Mock data
-  const stats = {
-    workingHours: 45,
-    targetHours: 120,
-    events: 8
+  const [workingHours, setWorkingHours] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  // Constants for NSS requirements
+  const REQUIRED_HOURS = 120;
+
+  const fetchWorkingHours = async () => {
+    const token = localStorage.getItem("nssUserToken");
+    if (!token) {
+      toast({
+        title: "Authentication Error",
+        description: "No token found. Please login again.",
+        variant: "destructive"
+      });
+      window.location.href = "/login";
+      return;
+    }
+
+    try {
+      const response = await fetch("http://localhost:5000/api/working-hours/my-hours", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      if (response.status === 401) {
+        toast({
+          title: "Token Expired",
+          description: "Your session has expired. Please login again.",
+          variant: "destructive"
+        });
+        localStorage.clear();
+        window.location.href = "/login";
+        return;
+      }
+      
+      const data = await response.json();
+      if (response.ok) {
+        setWorkingHours(data);
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to fetch working hours",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Fetch error:", error);
+      if (error.message.includes("Failed to fetch")) {
+        toast({
+          title: "Server Error",
+          description: "Cannot connect to server. Please make sure the backend is running.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to fetch working hours: " + error.message,
+          variant: "destructive"
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    fetchWorkingHours();
+  }, []);
+
+  // Calculate dynamic stats from real data
+  const calculateStats = () => {
+    const approvedHours = workingHours
+      .filter(entry => entry.status === "approved")
+      .reduce((total, entry) => total + (parseFloat(entry.hours) || 0), 0);
+    
+    const percentageComplete = Math.round((approvedHours / REQUIRED_HOURS) * 100);
+    
+    return {
+      workingHours: approvedHours,
+      targetHours: REQUIRED_HOURS,
+      events: workingHours.length, // Total entries as events participated
+      percentageComplete
+    };
+  };
+
+  // Get recent working hours (last 5 entries)
+  const getRecentWorkingHours = () => {
+    return workingHours
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 5)
+      .map(entry => ({
+        id: entry.id,
+        activity: entry.activity_name,
+        hours: parseFloat(entry.hours) || 0,
+        date: entry.date,
+        status: entry.status === "approved" ? "Approved" : 
+                entry.status === "pending" ? "Pending" : "Rejected"
+      }));
+  };
+
+  const stats = calculateStats();
+  const recentWorking = getRecentWorkingHours();
   
-  const percentageComplete = Math.round((stats.workingHours / stats.targetHours) * 100);
-  
+  // Mock data for upcoming events (keeping unchanged)
   const upcomingEvents = [
     { id: 1, name: "Tree Plantation Drive", date: "2023-05-20", role: "Team Member" },
     { id: 2, name: "Digital Literacy Workshop", date: "2023-05-25", role: "Organizer" }
-  ];
-  
-  const recentWorking = [
-    { id: 1, activity: "Website Content Creation", hours: 3, date: "2023-05-10", status: "Approved" },
-    { id: 2, activity: "Volunteer Training", hours: 2, date: "2023-05-08", status: "Pending" },
-    { id: 3, activity: "Event Planning Meeting", hours: 1.5, date: "2023-05-05", status: "Approved" }
   ];
   
   return (
@@ -55,12 +146,12 @@ const StudentCoordinatorDashboard = ({ isHeadCoordinator = false }) => {
               Working Hours Progress
             </h3>
             <span className="text-sm text-muted-foreground">
-              {stats.workingHours} / {stats.targetHours} hrs
+              {stats.workingHours.toFixed(1)} / {stats.targetHours} hrs
             </span>
           </div>
-          <Progress value={percentageComplete} className="h-2" />
+          <Progress value={stats.percentageComplete} className="h-2" />
           <p className="text-sm text-muted-foreground">
-            You have completed <span className="font-semibold text-blue-600">{percentageComplete}%</span> of your target hours.
+            You have completed <span className="font-semibold text-blue-600">{stats.percentageComplete}%</span> of your target hours.
           </p>
         </Card>
         
@@ -93,20 +184,36 @@ const StudentCoordinatorDashboard = ({ isHeadCoordinator = false }) => {
               </tr>
             </thead>
             <tbody>
-              {recentWorking.map((item) => (
-                <tr key={item.id} className="border-b hover:bg-muted/50">
-                  <td className="p-2">{item.activity}</td>
-                  <td className="p-2 text-center">{item.hours}</td>
-                  <td className="p-2 text-center">{new Date(item.date).toLocaleDateString()}</td>
-                  <td className="p-2 text-center">
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      item.status === "Approved" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
-                    }`}>
-                      {item.status}
-                    </span>
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="p-4 text-center text-muted-foreground">
+                    Loading working hours...
                   </td>
                 </tr>
-              ))}
+              ) : recentWorking.length > 0 ? (
+                recentWorking.map((item) => (
+                  <tr key={item.id} className="border-b hover:bg-muted/50">
+                    <td className="p-2">{item.activity}</td>
+                    <td className="p-2 text-center">{item.hours.toFixed(1)}</td>
+                    <td className="p-2 text-center">{new Date(item.date).toLocaleDateString()}</td>
+                    <td className="p-2 text-center">
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        item.status === "Approved" ? "bg-green-100 text-green-800" : 
+                        item.status === "Pending" ? "bg-amber-100 text-amber-800" :
+                        "bg-red-100 text-red-800"
+                      }`}>
+                        {item.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={4} className="p-4 text-center text-muted-foreground">
+                    No working hours logged yet. Start by adding your first entry!
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

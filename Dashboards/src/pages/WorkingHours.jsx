@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import {
   Table,
   TableBody,
@@ -14,7 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Clock, Plus, Calendar, CheckCircle, XCircle, Edit, Trash2 } from "lucide-react";
+import { Clock, Plus, Calendar, CheckCircle, XCircle, Edit, Trash2, Target } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -56,6 +57,9 @@ const WorkingHours = () => {
     endTime: "",
     description: ""
   });
+
+  // Constants for NSS requirements
+  const REQUIRED_HOURS = 120;
 
   const fetchWorkingHours = async () => {
     const token = localStorage.getItem("nssUserToken");
@@ -153,6 +157,22 @@ const WorkingHours = () => {
     const start = new Date(`2000-01-01 ${startTime}`);
     const end = new Date(`2000-01-01 ${endTime}`);
     return Math.max(0, (end - start) / (1000 * 60 * 60));
+  };
+
+  // Calculate progress for NSS requirement
+  const calculateProgress = () => {
+    const approvedHours = workingHours
+      .filter(entry => entry.status === "approved")
+      .reduce((total, entry) => total + (parseFloat(entry.hours) || 0), 0);
+    
+    const progressPercentage = Math.min((approvedHours / REQUIRED_HOURS) * 100, 100);
+    const remainingHours = Math.max(REQUIRED_HOURS - approvedHours, 0);
+    
+    return {
+      approvedHours,
+      progressPercentage,
+      remainingHours
+    };
   };
 
   // Filter working hours based on selected month and year
@@ -436,6 +456,8 @@ const WorkingHours = () => {
     );
   }
 
+  const progress = calculateProgress();
+
   return (
     <DashboardLayout userRole={userRole} userName={userName} userEmail={userEmail}>
       <div className="space-y-6">
@@ -515,6 +537,34 @@ const WorkingHours = () => {
             </DialogContent>
           </Dialog>
         </div>
+
+        {/* NSS Progress Bar */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Target className="mr-2 h-5 w-5 text-nss-primary" />
+              NSS Completion Progress
+            </CardTitle>
+            <CardDescription>
+              Track your progress towards the required 120 hours
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Progress: {progress.approvedHours.toFixed(1)} / {REQUIRED_HOURS} hours</span>
+                <span>{progress.progressPercentage.toFixed(1)}%</span>
+              </div>
+              <Progress value={progress.progressPercentage} className="h-3" />
+              <div className="text-sm text-muted-foreground">
+                {progress.remainingHours > 0 
+                  ? `${progress.remainingHours.toFixed(1)} hours remaining to complete NSS requirement`
+                  : "Congratulations! You have completed the NSS requirement!"
+                }
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Working Hours Table */}
         <Card>
