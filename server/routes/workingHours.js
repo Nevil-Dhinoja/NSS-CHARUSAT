@@ -2,6 +2,29 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const verifyToken = require('../middleware/verifyToken');
+
+// Test endpoint to check working hours data (no authentication required)
+router.get('/test-data', (req, res) => {
+  const sql = `
+    SELECT wh.*, au.name as student_name, au.department_id, d.name as department_name
+    FROM working_hours wh
+    JOIN assigned_users au ON wh.user_id = au.id
+    LEFT JOIN departments d ON au.department_id = d.id
+    ORDER BY wh.date DESC, wh.created_at DESC
+    LIMIT 10`;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error', details: err.message });
+    }
+    
+    res.json({
+      total_entries: results.length,
+      entries: results,
+      message: 'Test data from working_hours table'
+    });
+  });
+});
 const jwt = require('jsonwebtoken');
 
 // Add working hours entry
@@ -111,9 +134,9 @@ router.get('/department/my', verifyToken, (req, res) => {
   
   // Accept both 'PO' and 'Program Officer' (case-insensitive)
   const role = (req.user.role || '').toLowerCase();
-  if (role !== 'program officer' && role !== 'po') {
+  if (role !== 'program officer' && role !== 'po' && role !== 'pc') {
     console.log("❌ Access denied - user role:", req.user.role);
-    return res.status(403).json({ error: 'Access denied. Only Program Officers can view working hours.' });
+    return res.status(403).json({ error: 'Access denied. Only Program Officers and Program Coordinators can view working hours.' });
   }
 
   const user_id = req.user.id;
@@ -157,27 +180,89 @@ router.get('/department/my', verifyToken, (req, res) => {
   });
 });
 
-// Get all working hours for approval (Program Officers only)
+// Get all working hours for approval (Program Officers and Coordinators only)
 router.get('/all', verifyToken, (req, res) => {
+  console.log("🔍 /all endpoint called");
+  console.log("🔍 User from token:", req.user);
+  
   // Accept both 'PO' and 'Program Officer' (case-insensitive)
   const role = (req.user.role || '').toLowerCase();
-  if (role !== 'program officer' && role !== 'po') {
-    return res.status(403).json({ error: 'Access denied. Only Program Officers can view all working hours.' });
+  console.log("🔍 User role:", req.user.role, "Normalized role:", role);
+  
+  if (role !== 'program officer' && role !== 'po' && role !== 'pc') {
+    console.log("❌ Access denied - user role:", req.user.role);
+    return res.status(403).json({ 
+      error: 'Access denied. Only Program Officers and Program Coordinators can view all working hours.',
+      userRole: req.user.role,
+      normalizedRole: role
+    });
   }
 
-  const sql = `
-    SELECT wh.*, au.name as student_name, au.department_id 
-    FROM working_hours wh
-    JOIN assigned_users au ON wh.user_id = au.id
-    ORDER BY wh.date DESC, wh.created_at DESC`;
+  const user_id = req.user.id;
+  console.log("🔍 User ID:", user_id);
+  
+  // For PO users, only show working hours from their department
+  if (role === 'po' || role === 'program officer') {
+    console.log("🔍 PO user detected, getting department-specific data");
+    // First get the PO's department
+    const getDeptSql = 'SELECT department_id FROM assigned_users WHERE id = ? LIMIT 1';
+    console.log("🔍 Executing SQL:", getDeptSql, "with user_id:", user_id);
+    
+    db.query(getDeptSql, [user_id], (err, deptResults) => {
+      if (err) {
+        console.log("❌ Dept SQL error:", err);
+        return res.status(500).json({ error: 'Database error', details: err.message });
+      }
+      
+      if (!deptResults || deptResults.length === 0) {
+        console.log("❌ No assigned_user found for user_id:", user_id);
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      const userDepartmentId = deptResults[0].department_id;
+      console.log("✅ Found department_id:", userDepartmentId);
+      
+      // Get working hours only from PO's department
+      const sql = `
+        SELECT wh.*, au.name as student_name, au.department_id, d.name as department_name
+        FROM working_hours wh
+        JOIN assigned_users au ON wh.user_id = au.id
+        LEFT JOIN departments d ON au.department_id = d.id
+        WHERE au.department_id = ?
+        ORDER BY wh.date DESC, wh.created_at DESC`;
 
-  db.query(sql, (err, results) => {
-    if (err) {
-      return res.status(500).json({ error: 'Database error', details: err.message });
-    }
+      console.log("🔍 Executing working hours query with department_id:", userDepartmentId);
+      
+      db.query(sql, [userDepartmentId], (err, results) => {
+        if (err) {
+          console.log("❌ Working hours query error:", err);
+          return res.status(500).json({ error: 'Database error', details: err.message });
+        }
+        console.log("✅ Found", results.length, "working hours entries for department", userDepartmentId);
+        res.json(results);
+      });
+    });
+  } else {
+    console.log("🔍 PC user detected, getting all working hours");
+    // For PC users, show all working hours
+    const sql = `
+      SELECT wh.*, au.name as student_name, au.department_id, d.name as department_name
+      FROM working_hours wh
+      JOIN assigned_users au ON wh.user_id = au.id
+      LEFT JOIN departments d ON au.department_id = d.id
+      ORDER BY wh.date DESC, wh.created_at DESC`;
 
-    res.json(results);
-  });
+    console.log("🔍 Executing query for all working hours");
+    
+    db.query(sql, (err, results) => {
+      if (err) {
+        console.log("❌ Working hours query error:", err);
+        return res.status(500).json({ error: 'Database error', details: err.message });
+      }
+      console.log("✅ Found", results.length, "working hours entries total");
+      res.json(results);
+    });
+  }
 });
 
 // Update working hours entry (only by the user who created it)
@@ -220,27 +305,79 @@ router.put('/update-status/:id', verifyToken, (req, res) => {
 
   // Accept both 'PO' and 'Program Officer' (case-insensitive)
   const role = (req.user.role || '').toLowerCase();
-  if (role !== 'program officer' && role !== 'po') {
-    return res.status(403).json({ error: 'Access denied. Only Program Officers can update status.' });
+  if (role !== 'program officer' && role !== 'po' && role !== 'pc') {
+    return res.status(403).json({ error: 'Access denied. Only Program Officers and Program Coordinators can update status.' });
   }
 
   if (!['pending', 'approved', 'rejected'].includes(status)) {
     return res.status(400).json({ error: 'Invalid status. Must be pending, approved, or rejected.' });
   }
 
-  const sql = 'UPDATE working_hours SET status = ? WHERE id = ?';
+  const user_id = req.user.id;
 
-  db.query(sql, [status, id], (err, result) => {
-    if (err) {
-      return res.status(500).json({ error: 'Database error', details: err.message });
-    }
+  // For PO users, check if they can approve this specific working hours entry
+  if (role === 'po' || role === 'program officer') {
+    // First get the PO's department
+    const getDeptSql = 'SELECT department_id FROM assigned_users WHERE id = ? LIMIT 1';
+    
+    db.query(getDeptSql, [user_id], (err, deptResults) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error', details: err.message });
+      }
+      
+      if (!deptResults || deptResults.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      const userDepartmentId = deptResults[0].department_id;
+      
+      // Check if the working hours entry belongs to PO's department
+      const checkSql = `
+        SELECT wh.id FROM working_hours wh
+        JOIN assigned_users au ON wh.user_id = au.id
+        WHERE wh.id = ? AND au.department_id = ?
+      `;
+      
+      db.query(checkSql, [id, userDepartmentId], (err, checkResults) => {
+        if (err) {
+          return res.status(500).json({ error: 'Database error', details: err.message });
+        }
+        
+        if (checkResults.length === 0) {
+          return res.status(403).json({ error: 'Access denied. You can only approve working hours from your department.' });
+        }
+        
+        // Update the status
+        const updateSql = 'UPDATE working_hours SET status = ? WHERE id = ?';
+        db.query(updateSql, [status, id], (err, result) => {
+          if (err) {
+            return res.status(500).json({ error: 'Database error', details: err.message });
+          }
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Working hours entry not found' });
-    }
+          if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Working hours entry not found' });
+          }
 
-    res.json({ message: 'Status updated successfully' });
-  });
+          res.json({ message: 'Status updated successfully' });
+        });
+      });
+    });
+  } else {
+    // For PC users, allow updating any working hours entry
+    const sql = 'UPDATE working_hours SET status = ? WHERE id = ?';
+
+    db.query(sql, [status, id], (err, result) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error', details: err.message });
+      }
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: 'Working hours entry not found' });
+      }
+
+      res.json({ message: 'Status updated successfully' });
+    });
+  }
 });
 
 // Approve working hours entry
@@ -249,23 +386,75 @@ router.put('/approve/:id', verifyToken, (req, res) => {
 
   // Accept both 'PO' and 'Program Officer' (case-insensitive)
   const role = (req.user.role || '').toLowerCase();
-  if (role !== 'program officer' && role !== 'po') {
-    return res.status(403).json({ error: 'Access denied. Only Program Officers can approve working hours.' });
+  if (role !== 'program officer' && role !== 'po' && role !== 'pc') {
+    return res.status(403).json({ error: 'Access denied. Only Program Officers and Program Coordinators can approve working hours.' });
   }
 
-  const sql = 'UPDATE working_hours SET status = "approved" WHERE id = ?';
+  const user_id = req.user.id;
 
-  db.query(sql, [id], (err, result) => {
-    if (err) {
-      return res.status(500).json({ error: 'Database error', details: err.message });
-    }
+  // For PO users, check if they can approve this specific working hours entry
+  if (role === 'po' || role === 'program officer') {
+    // First get the PO's department
+    const getDeptSql = 'SELECT department_id FROM assigned_users WHERE id = ? LIMIT 1';
+    
+    db.query(getDeptSql, [user_id], (err, deptResults) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error', details: err.message });
+      }
+      
+      if (!deptResults || deptResults.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      const userDepartmentId = deptResults[0].department_id;
+      
+      // Check if the working hours entry belongs to PO's department
+      const checkSql = `
+        SELECT wh.id FROM working_hours wh
+        JOIN assigned_users au ON wh.user_id = au.id
+        WHERE wh.id = ? AND au.department_id = ?
+      `;
+      
+      db.query(checkSql, [id, userDepartmentId], (err, checkResults) => {
+        if (err) {
+          return res.status(500).json({ error: 'Database error', details: err.message });
+        }
+        
+        if (checkResults.length === 0) {
+          return res.status(403).json({ error: 'Access denied. You can only approve working hours from your department.' });
+        }
+        
+        // Update the status
+        const updateSql = 'UPDATE working_hours SET status = "approved" WHERE id = ?';
+        db.query(updateSql, [id], (err, result) => {
+          if (err) {
+            return res.status(500).json({ error: 'Database error', details: err.message });
+          }
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Working hours entry not found' });
-    }
+          if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Working hours entry not found' });
+          }
 
-    res.json({ message: 'Working hours approved successfully' });
-  });
+          res.json({ message: 'Working hours approved successfully' });
+        });
+      });
+    });
+  } else {
+    // For PC users, allow approving any working hours entry
+    const sql = 'UPDATE working_hours SET status = "approved" WHERE id = ?';
+
+    db.query(sql, [id], (err, result) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error', details: err.message });
+      }
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: 'Working hours entry not found' });
+      }
+
+      res.json({ message: 'Working hours approved successfully' });
+    });
+  }
 });
 
 // Reject working hours entry
@@ -274,23 +463,75 @@ router.put('/reject/:id', verifyToken, (req, res) => {
 
   // Accept both 'PO' and 'Program Officer' (case-insensitive)
   const role = (req.user.role || '').toLowerCase();
-  if (role !== 'program officer' && role !== 'po') {
-    return res.status(403).json({ error: 'Access denied. Only Program Officers can reject working hours.' });
+  if (role !== 'program officer' && role !== 'po' && role !== 'pc') {
+    return res.status(403).json({ error: 'Access denied. Only Program Officers and Program Coordinators can reject working hours.' });
   }
 
-  const sql = 'UPDATE working_hours SET status = "rejected" WHERE id = ?';
+  const user_id = req.user.id;
 
-  db.query(sql, [id], (err, result) => {
-    if (err) {
-      return res.status(500).json({ error: 'Database error', details: err.message });
-    }
+  // For PO users, check if they can reject this specific working hours entry
+  if (role === 'po' || role === 'program officer') {
+    // First get the PO's department
+    const getDeptSql = 'SELECT department_id FROM assigned_users WHERE id = ? LIMIT 1';
+    
+    db.query(getDeptSql, [user_id], (err, deptResults) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error', details: err.message });
+      }
+      
+      if (!deptResults || deptResults.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      const userDepartmentId = deptResults[0].department_id;
+      
+      // Check if the working hours entry belongs to PO's department
+      const checkSql = `
+        SELECT wh.id FROM working_hours wh
+        JOIN assigned_users au ON wh.user_id = au.id
+        WHERE wh.id = ? AND au.department_id = ?
+      `;
+      
+      db.query(checkSql, [id, userDepartmentId], (err, checkResults) => {
+        if (err) {
+          return res.status(500).json({ error: 'Database error', details: err.message });
+        }
+        
+        if (checkResults.length === 0) {
+          return res.status(403).json({ error: 'Access denied. You can only reject working hours from your department.' });
+        }
+        
+        // Update the status
+        const updateSql = 'UPDATE working_hours SET status = "rejected" WHERE id = ?';
+        db.query(updateSql, [id], (err, result) => {
+          if (err) {
+            return res.status(500).json({ error: 'Database error', details: err.message });
+          }
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Working hours entry not found' });
-    }
+          if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Working hours entry not found' });
+          }
 
-    res.json({ message: 'Working hours rejected successfully' });
-  });
+          res.json({ message: 'Working hours rejected successfully' });
+        });
+      });
+    });
+  } else {
+    // For PC users, allow rejecting any working hours entry
+    const sql = 'UPDATE working_hours SET status = "rejected" WHERE id = ?';
+
+    db.query(sql, [id], (err, result) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error', details: err.message });
+      }
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: 'Working hours entry not found' });
+      }
+
+      res.json({ message: 'Working hours rejected successfully' });
+    });
+  }
 });
 
 // Delete working hours entry (only by the user who created it)

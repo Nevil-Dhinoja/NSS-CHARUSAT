@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,22 +6,29 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, Edit, Save, X, User, Mail, Calendar, IdCard, Shield, Building } from "lucide-react";
+import { Edit, Save, X, User, Mail, Calendar, IdCard, Shield, Building, Loader2 } from "lucide-react";
 
 const Profile = () => {
   const [userRole, setUserRole] = React.useState(null);
   const [userName, setUserName] = React.useState("");
   const [userEmail, setUserEmail] = React.useState("");
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [profileData, setProfileData] = useState({
-    fullName: "",
+    id: "",
+    name: "",
+    login_id: "",
     email: "",
-    department: "",
-    employeeId: "",
-    phone: "",
-    designation: ""
+    role_id: "",
+    role_name: "",
+    department_id: "",
+    department_name: "",
+    institute: ""
   });
   const { toast } = useToast();
+
+  const API_BASE_URL = "http://localhost:5000/api";
 
   React.useEffect(() => {
     const token = localStorage.getItem("nssUserToken");
@@ -36,43 +43,96 @@ const Profile = () => {
       setUserRole(role);
       setUserName(user.name);
       setUserEmail(user.email);
-      setProfileData({
-        fullName: user.name,
-        email: user.email,
-        department: role === "pc" ? "Administration" : role === "po" ? "Computer Science" : "Information Technology",
-        employeeId: role === "pc" ? "PC001" : role === "po" ? "PO001" : "ST001",
-        phone: "+91 9876543210",
-        designation: role === "pc" ? "Program Coordinator" : role === "po" ? "Program Officer" : "Student Coordinator"
-      });
+      fetchProfileData();
     } catch (err) {
       localStorage.clear();
       window.location.href = "/login";
     }
   }, []);
 
-  const handleSave = () => {
-    localStorage.setItem("nssUserName", profileData.fullName);
-    localStorage.setItem("nssUserEmail", profileData.email);
+  const fetchProfileData = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("nssUserToken");
+      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-    setUserName(profileData.fullName);
-    setUserEmail(profileData.email);
-    setIsEditing(false);
+      if (!response.ok) {
+        throw new Error('Failed to fetch profile data');
+      }
 
-    toast({
-      title: "Profile Updated",
-      description: "Your profile has been updated successfully.",
-    });
+      const data = await response.json();
+      setProfileData(data);
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch profile data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      const token = localStorage.getItem("nssUserToken");
+      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: profileData.name,
+          email: profileData.email,
+          login_id: profileData.login_id
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update profile');
+      }
+
+      const result = await response.json();
+      
+      // Update localStorage
+      const userStr = localStorage.getItem("nssUser");
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        user.name = profileData.name;
+        user.email = profileData.email;
+        localStorage.setItem("nssUser", JSON.stringify(user));
+      }
+
+      setUserName(profileData.name);
+      setUserEmail(profileData.email);
+      setIsEditing(false);
+
+      toast({
+        title: "Profile Updated",
+        description: result.message || "Your profile has been updated successfully.",
+      });
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update profile",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {
-    setProfileData({
-      fullName: userName,
-      email: userEmail,
-      department: userRole === "pc" ? "Administration" : userRole === "po" ? "Computer Science" : "Information Technology",
-      employeeId: userRole === "pc" ? "PC001" : userRole === "po" ? "PO001" : "ST001",
-      phone: "+91 9876543210",
-      designation: userRole === "pc" ? "Program Coordinator" : userRole === "po" ? "Program Officer" : "Student Coordinator"
-    });
+    fetchProfileData(); // Reload original data
     setIsEditing(false);
   };
 
@@ -88,12 +148,7 @@ const Profile = () => {
   }
 
   const getRoleDisplayName = () => {
-    switch (userRole) {
-      case "pc": return "Program Coordinator";
-      case "po": return "Program Officer";
-      case "sc": return "Student Coordinator";
-      default: return "User";
-    }
+    return profileData.role_name || "User";
   };
 
   const getRoleColor = () => {
@@ -104,6 +159,19 @@ const Profile = () => {
       default: return "from-slate-500 to-slate-700";
     }
   };
+
+  if (loading) {
+    return (
+      <DashboardLayout userRole={userRole} userName={userName} userEmail={userEmail}>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto" />
+            <p className="text-lg mt-4">Loading profile data...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout userRole={userRole} userName={userName} userEmail={userEmail}>
@@ -125,12 +193,19 @@ const Profile = () => {
             <div className="flex gap-2">
               <Button
                 onClick={handleSave}
+                disabled={saving}
                 className="bg-green-600 hover:bg-green-700"
               >
-                <Save className="mr-2 h-4 w-4" /> Save Changes
+                {saving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                {saving ? "Saving..." : "Save Changes"}
               </Button>
               <Button
                 onClick={handleCancel}
+                disabled={saving}
                 variant="outline"
               >
                 <X className="mr-2 h-4 w-4" /> Cancel
@@ -144,34 +219,26 @@ const Profile = () => {
           <div className="lg:col-span-1">
             <Card>
               <CardHeader>
-                <CardTitle className="text-center">Profile Picture</CardTitle>
+                <CardTitle className="text-center">Profile Information</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col items-center space-y-4">
                 <div className="relative">
                   <Avatar className="h-24 w-24">
                     <AvatarImage src="" />
                     <AvatarFallback className={`bg-gradient-to-br ${getRoleColor()} text-white text-2xl font-bold`}>
-                      {profileData.fullName.split(" ").map(name => name[0]).join("")}
+                      {profileData.name?.split(" ").map(name => name[0]).join("") || "U"}
                     </AvatarFallback>
                   </Avatar>
-                  {isEditing && (
-                    <Button
-                      size="sm"
-                      className="absolute -bottom-1 -right-1 rounded-full p-2"
-                    >
-                      <Camera className="h-4 w-4" />
-                    </Button>
-                  )}
                 </div>
                 <div className="text-center space-y-2">
-                  <h3 className="text-xl font-bold">{profileData.fullName}</h3>
+                  <h3 className="text-xl font-bold">{profileData.name}</h3>
                   <div className={`inline-flex items-center px-3 py-1 rounded-full bg-gradient-to-r ${getRoleColor()} text-white text-sm font-medium`}>
                     <Shield className="mr-1 h-4 w-4" />
                     {getRoleDisplayName()}
                   </div>
                   <p className="text-gray-600 flex items-center justify-center">
                     <Building className="mr-1 h-4 w-4" />
-                    {profileData.department}
+                    {profileData.department_name || "Department"}
                   </p>
                 </div>
               </CardContent>
@@ -193,14 +260,14 @@ const Profile = () => {
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="fullName" className="flex items-center">
+                    <Label htmlFor="name" className="flex items-center">
                       <User className="mr-1 h-4 w-4" />
                       Full Name
                     </Label>
                     <Input
-                      id="fullName"
-                      value={profileData.fullName}
-                      onChange={(e) => setProfileData({ ...profileData, fullName: e.target.value })}
+                      id="name"
+                      value={profileData.name || ""}
+                      onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
                       disabled={!isEditing}
                       className={isEditing ? "" : "bg-gray-50"}
                     />
@@ -213,21 +280,21 @@ const Profile = () => {
                     <Input
                       id="email"
                       type="email"
-                      value={profileData.email}
+                      value={profileData.email || ""}
                       onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
                       disabled={!isEditing}
                       className={isEditing ? "" : "bg-gray-50"}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="employeeId" className="flex items-center">
+                    <Label htmlFor="login_id" className="flex items-center">
                       <IdCard className="mr-1 h-4 w-4" />
-                      {userRole === "sc" ? "Student ID" : "Employee ID"}
+                      Login ID
                     </Label>
                     <Input
-                      id="employeeId"
-                      value={profileData.employeeId}
-                      onChange={(e) => setProfileData({ ...profileData, employeeId: e.target.value })}
+                      id="login_id"
+                      value={profileData.login_id || ""}
+                      onChange={(e) => setProfileData({ ...profileData, login_id: e.target.value })}
                       disabled={!isEditing}
                       className={isEditing ? "" : "bg-gray-50"}
                     />
@@ -239,37 +306,34 @@ const Profile = () => {
                     </Label>
                     <Input
                       id="department"
-                      value={profileData.department}
-                      onChange={(e) => setProfileData({ ...profileData, department: e.target.value })}
-                      disabled={!isEditing}
-                      className={isEditing ? "" : "bg-gray-50"}
+                      value={profileData.department_name || ""}
+                      disabled={true}
+                      className="bg-gray-50"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="phone" className="flex items-center">
-                      <Calendar className="mr-1 h-4 w-4" />
-                      Phone Number
-                    </Label>
-                    <Input
-                      id="phone"
-                      value={profileData.phone}
-                      onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
-                      disabled={!isEditing}
-                      className={isEditing ? "" : "bg-gray-50"}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="designation" className="flex items-center">
+                    <Label htmlFor="role" className="flex items-center">
                       <Shield className="mr-1 h-4 w-4" />
-                      Designation
+                      Role
                     </Label>
                     <Input
-                      id="designation"
-                      value={profileData.designation}
-                      onChange={(e) => setProfileData({ ...profileData, designation: e.target.value })}
-                      disabled={!isEditing}
-                      className={isEditing ? "" : "bg-gray-50"}
+                      id="role"
+                      value={profileData.role_name || ""}
+                      disabled={true}
+                      className="bg-gray-50"
                     />
+                  </div>
+                  <div className="space-y-2">
+                                         <Label htmlFor="institute" className="flex items-center">
+                       <Calendar className="mr-1 h-4 w-4" />
+                       Institute
+                     </Label>
+                     <Input
+                       id="institute"
+                       value={profileData.institute_name || ""}
+                       disabled={true}
+                       className="bg-gray-50"
+                     />
                   </div>
                 </div>
               </CardContent>

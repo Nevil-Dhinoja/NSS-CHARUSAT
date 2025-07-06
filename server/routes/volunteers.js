@@ -97,11 +97,11 @@ router.get('/all', verifyToken, (req, res) => {
   });
 });
 
-// Get volunteers for CE department (Program Officers only)
+// Get volunteers for CE department (Program Officers and Coordinators only)
 router.get('/department/:department', verifyToken, (req, res) => {
-  // Check if user is Program Officer
-  if (req.user.role !== 'po') {
-    return res.status(403).json({ error: 'Access denied. Only Program Officers can view volunteers.' });
+  // Check if user is Program Officer or Program Coordinator
+  if (req.user.role !== 'po' && req.user.role !== 'pc') {
+    return res.status(403).json({ error: 'Access denied. Only Program Officers and Program Coordinators can view volunteers.' });
   }
 
   const sql = 'SELECT * FROM volunteers WHERE department = "CE" ORDER BY joined_on DESC';
