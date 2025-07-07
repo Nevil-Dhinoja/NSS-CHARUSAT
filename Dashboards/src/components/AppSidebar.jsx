@@ -62,11 +62,6 @@ export default function AppSidebar({ userRole, userName, userEmail }) {
           icon: UserCheck,
         },
         {
-          title: "Departments",
-          url: "/departments",
-          icon: Building2,
-        },
-        {
           title: "Volunteers",
           url: "/volunteers",
           icon: Users,

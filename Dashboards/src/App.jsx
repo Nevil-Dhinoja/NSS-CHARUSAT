@@ -9,7 +9,6 @@ import Index from "./pages/Index.jsx";
 import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound.jsx";
-import Departments from "./pages/Departments.jsx";
 import ProgramOfficers from "./pages/ProgramOfficers.jsx";
 import StudentLeaders from "./pages/StudentLeaders.jsx";
 import Volunteers from "./pages/Volunteers.jsx";
@@ -20,6 +19,7 @@ import WorkingHours from "./pages/WorkingHours.jsx";
 import Approvals from "./pages/Approvals.jsx";
 import Profile from "./pages/Profile.jsx";
 import Settings from "./pages/Settings.jsx";
+import LoginPCHSC from "./pages/LoginPCHSC.jsx";
 
 const queryClient = new QueryClient();
 
@@ -33,7 +33,6 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/departments" element={<Departments />} />
           <Route path="/program-officers" element={<ProgramOfficers />} />
           <Route path="/student-leaders" element={<StudentLeaders />} />
           <Route path="/volunteers" element={<Volunteers />} />
@@ -44,6 +43,7 @@ const App = () => (
           <Route path="/approvals" element={<Approvals />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/login-pc-hsc" element={<LoginPCHSC />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

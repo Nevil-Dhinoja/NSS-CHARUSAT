@@ -128,16 +128,12 @@ const Volunteers = () => {
         endpoint = "http://localhost:5000/api/volunteers/all";
       }
 
-
-
       const response = await fetch(endpoint, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
       const data = await response.json();
-      
-
       
       if (response.ok) {
         // For Student Coordinators, double-check that we only have CE department volunteers

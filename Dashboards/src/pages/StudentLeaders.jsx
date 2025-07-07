@@ -33,6 +33,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
   Users,
@@ -64,6 +71,12 @@ const StudentLeaders = () => {
   const { toast } = useToast();
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  
+  // Filter states for PC role
+  const [selectedInstitute, setSelectedInstitute] = useState("all");
+  const [selectedDepartment, setSelectedDepartment] = useState("all");
+  const [institutes, setInstitutes] = useState([]);
+  const [departments, setDepartments] = useState([]);
 
   React.useEffect(() => {
     const token = localStorage.getItem("nssUserToken");
@@ -91,8 +104,11 @@ const StudentLeaders = () => {
 
   // Fetch student leaders when user data is loaded
   React.useEffect(() => {
-    if (userRole && userDepartment) {
+    if (userRole && (userRole === "pc" || userRole === "program coordinator" || userDepartment)) {
       fetchStudentLeaders();
+      if (userRole === "pc" || userRole === "program coordinator") {
+        fetchInstitutes();
+      }
     }
   }, [userRole, userDepartment]);
 
@@ -113,7 +129,7 @@ const StudentLeaders = () => {
         // Filter based on user role and department
         let filteredLeaders;
         if (userRole === "pc" || userRole === "program coordinator") {
-          // PC can see all departments
+          // PC can see all departments (no filtering)
           filteredLeaders = data;
         } else if (userRole === "po" || userRole === "program officer") {
           // PO can only see their department
@@ -147,11 +163,76 @@ const StudentLeaders = () => {
     }
   };
 
+  // Fetch institutes for PC role
+  const fetchInstitutes = async () => {
+    const token = localStorage.getItem("nssUserToken");
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/institutes", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setInstitutes(data);
+      } else {
+        console.error("Error fetching institutes:", response.status, response.statusText);
+        setInstitutes([]);
+      }
+    } catch (error) {
+      console.error("Error fetching institutes:", error);
+      setInstitutes([]);
+    }
+  };
+
+  // Fetch departments for selected institute
+  const fetchDepartments = async (instituteId) => {
+    if (!instituteId || instituteId === "all") {
+      setDepartments([]);
+      return;
+    }
+
+    const token = localStorage.getItem("nssUserToken");
+    try {
+      const response = await fetch(`http://localhost:5000/api/auth/departments/${instituteId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setDepartments(data);
+      } else {
+        console.error("Error fetching departments:", response.status, response.statusText);
+        setDepartments([]);
+      }
+    } catch (error) {
+      console.error("Error fetching departments:", error);
+      setDepartments([]);
+    }
+  };
+
+  // Handle institute selection change
+  const handleInstituteChange = (instituteId) => {
+    setSelectedInstitute(instituteId);
+    if (instituteId === "all") {
+      setSelectedDepartment("all");
+      setDepartments([]);
+    } else {
+      setSelectedDepartment("all"); // Reset department when institute changes
+      fetchDepartments(instituteId);
+    }
+  };
+
   const [newLeader, setNewLeader] = useState({
     name: "",
     loginId: "",
     email: "",
-    department: "CE", // Pre-fill with CE for PO users
+    institute: "",
+    department: "",
+    password: "",
     position: "Student Coordinator" // Pre-fill position
   });
 
@@ -164,13 +245,15 @@ const StudentLeaders = () => {
       name: "",
       loginId: "",
       email: "",
-      department: user.department || "CE", // Use logged-in user's department
+      institute: "",
+      department: "",
+      password: "",
       position: "Student Coordinator" // Always set to Student Coordinator
     });
   };
 
   const handleAddLeader = async () => {
-    if (!newLeader.name || !newLeader.loginId || !newLeader.email || !newLeader.department) {
+    if (!newLeader.name || !newLeader.loginId || !newLeader.email || !newLeader.institute || !newLeader.department || !newLeader.password) {
       toast({
         title: "Missing Information",
         description: "Please fill in all required fields.",
@@ -201,7 +284,9 @@ const StudentLeaders = () => {
           name: newLeader.name,
           login_id: newLeader.loginId,
           email: newLeader.email,
-          department: newLeader.department
+          institute_id: newLeader.institute,
+          department_id: newLeader.department,
+          password: newLeader.password
         }),
       });
 
@@ -221,7 +306,7 @@ const StudentLeaders = () => {
       if (response.ok) {
         toast({
           title: "Student Leader Added",
-          description: `New student leader has been added successfully. Default password: ${data.defaultPassword}`,
+          description: "New student leader has been added successfully.",
         });
         setIsAddingLeader(false);
         initializeForm();
@@ -403,7 +488,26 @@ const StudentLeaders = () => {
     const matchesSearch = leader.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (leader.login_id || leader.loginId || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       leader.email.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
+    
+    // Advanced filter logic for PC role
+    let matchesInstitute = true;
+    let matchesDepartment = true;
+    
+    if (userRole === "pc" || userRole === "program coordinator") {
+      if (selectedInstitute !== "all" && selectedDepartment !== "all") {
+        // Both selected: AND
+        matchesInstitute = leader.institute_id && leader.institute_id.toString() === selectedInstitute;
+        matchesDepartment = leader.department_id && leader.department_id.toString() === selectedDepartment;
+      } else if (selectedInstitute !== "all") {
+        // Only institute selected
+        matchesInstitute = leader.institute_id && leader.institute_id.toString() === selectedInstitute;
+      } else if (selectedDepartment !== "all") {
+        // Only department selected
+        matchesDepartment = leader.department_id && leader.department_id.toString() === selectedDepartment;
+      }
+    }
+    
+    return matchesSearch && matchesInstitute && matchesDepartment;
   });
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -497,34 +601,46 @@ const StudentLeaders = () => {
                       />
                     </div>
                     <div className="space-y-2">
+                      <Label htmlFor="institute">Institute</Label>
+                      <Select value={newLeader.institute} onValueChange={(value) => {
+                        setNewLeader({ ...newLeader, institute: value, department: "" });
+                        if (value !== "all") {
+                          fetchDepartments(value);
+                        }
+                      }}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select Institute" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {institutes && institutes.length > 0 && institutes.map(inst => (
+                            <SelectItem key={inst.id} value={inst.id.toString()}>{inst.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
                       <Label htmlFor="department">Department</Label>
+                      <Select value={newLeader.department} onValueChange={(value) => setNewLeader({ ...newLeader, department: value })}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select Department" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {departments && departments.length > 0 && departments.map(dep => (
+                            <SelectItem key={dep.id} value={dep.id.toString()}>{dep.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Password</Label>
                       <Input
-                        id="department"
-                        value={userRole === "pc" || userRole === "program coordinator" ? "" : newLeader.department}
-                        readOnly
-                        disabled
-                        className="bg-gray-100"
-                        placeholder={userRole === "pc" || userRole === "program coordinator" ? "Select department below" : ""}
+                        id="password"
+                        type="password"
+                        value={newLeader.password}
+                        onChange={(e) => setNewLeader({ ...newLeader, password: e.target.value })}
+                        placeholder="Enter password"
                       />
                     </div>
-                    {(userRole === "pc" || userRole === "program coordinator") && (
-                    <div className="space-y-2">
-                        <Label htmlFor="department-select">Select Department</Label>
-                      <select
-                          id="department-select"
-                        value={newLeader.department}
-                        onChange={(e) => setNewLeader({ ...newLeader, department: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      >
-                        <option value="">Select Department</option>
-                          <option value="CE">Computer Engineering</option>
-                          <option value="ME">Mechanical Engineering</option>
-                          <option value="EE">Electrical Engineering</option>
-                          <option value="IT">Information Technology</option>
-                          <option value="CSE">Computer Science Engineering</option>
-                      </select>
-                    </div>
-                    )}
                     <div className="md:col-span-2 space-y-2">
                       <Label htmlFor="position">Position</Label>
                       <Input
@@ -549,6 +665,40 @@ const StudentLeaders = () => {
             )}
           </div>
         </div>
+
+        {/* Filters for PC role */}
+        {(userRole === "pc" || userRole === "program coordinator") && (
+          <div className="flex flex-col md:flex-row gap-4 mb-4">
+            <div className="w-full md:w-1/2">
+              <Label>Institute</Label>
+              <Select value={selectedInstitute} onValueChange={handleInstituteChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select Institute" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Institutes</SelectItem>
+                  {institutes && institutes.length > 0 && institutes.map(inst => (
+                    <SelectItem key={inst.id} value={inst.id.toString()}>{inst.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-full md:w-1/2">
+              <Label>Department</Label>
+              <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select Department" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Departments</SelectItem>
+                  {departments && departments.length > 0 && departments.map(dep => (
+                    <SelectItem key={dep.id} value={dep.id.toString()}>{dep.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
 
         {/* Edit Dialog */}
         <Dialog open={isEditingLeader} onOpenChange={setIsEditingLeader}>
@@ -754,7 +904,7 @@ const StudentLeaders = () => {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-4">
-                        No CE department student leaders found.
+                        No department student leaders found.
                       </TableCell>
                     </TableRow>
                   )}

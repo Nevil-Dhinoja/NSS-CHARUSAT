@@ -235,6 +235,17 @@ const Login = () => {
               </Button>
             </form>
 
+            <div className="mt-6 flex flex-col items-center">
+              <Button
+                variant="outline"
+                className="w-full h-14 rounded-xl text-lg font-semibold mt-2"
+                onClick={() => navigate("/login-pc-hsc")}
+                type="button"
+              >
+                Login as PC/HSC
+              </Button>
+            </div>
+
             <div className="text-center mt-8 text-sm text-gray-500">
               <p>&copy; {new Date().getFullYear()} NSS Connect. All rights reserved.</p>
             </div>

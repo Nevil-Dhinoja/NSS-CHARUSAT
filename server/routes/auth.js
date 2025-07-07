@@ -20,7 +20,7 @@ router.get('/users/:role', verifyToken, (req, res) => {
   }
 
   const sql = `
-    SELECT au.*, r.role_name, d.name as department_name, i.name as institute_name
+    SELECT au.*, r.role_name, d.id as department_id, d.name as department_name, i.id as institute_id, i.name as institute_name
     FROM assigned_users au
     LEFT JOIN roles r ON au.role_id = r.id
     LEFT JOIN departments d ON au.department_id = d.id
@@ -175,7 +175,7 @@ router.put('/password', verifyToken, async (req, res) => {
 
 // Add new student leader
 router.post('/users/student-coordinator', verifyToken, async (req, res) => {
-  const { name, login_id, email, department } = req.body;
+  const { name, login_id, email, institute_id, department_id, password } = req.body;
   
   // Check if user has permission to add users
   const userRole = req.user.role?.toLowerCase();
@@ -185,8 +185,8 @@ router.post('/users/student-coordinator', verifyToken, async (req, res) => {
     return res.status(403).json({ error: 'Access denied. Only Program Coordinators and Program Officers can add users.' });
   }
 
-  if (!name || !login_id || !email || !department) {
-    return res.status(400).json({ error: 'Name, login ID, email, and department are required' });
+  if (!name || !login_id || !email || !institute_id || !department_id || !password) {
+    return res.status(400).json({ error: 'Name, login ID, email, institute, department, and password are required' });
   }
 
   try {
@@ -203,63 +203,46 @@ router.post('/users/student-coordinator', verifyToken, async (req, res) => {
       
       const roleId = roleResults[0].id;
       
-      // Get department ID
-      const deptSql = 'SELECT id FROM departments WHERE name = ? OR name = ?';
-      const deptName = department.endsWith(' Engineering') ? department : department + ' Engineering';
-      db.query(deptSql, [department, deptName], async (err, deptResults) => {
+      // Check if login_id already exists
+      const checkSql = 'SELECT id FROM assigned_users WHERE login_id = ?';
+      db.query(checkSql, [login_id], async (err, checkResults) => {
         if (err) {
           return res.status(500).json({ error: 'Database error', details: err.message });
         }
         
-        if (deptResults.length === 0) {
-          return res.status(404).json({ error: 'Department not found' });
+        if (checkResults.length > 0) {
+          return res.status(409).json({ error: 'Login ID already exists' });
         }
         
-        const departmentId = deptResults[0].id;
-        
-        // Check if login_id already exists
-        const checkSql = 'SELECT id FROM assigned_users WHERE login_id = ?';
-        db.query(checkSql, [login_id], async (err, checkResults) => {
+        // Check if email already exists
+        const emailCheckSql = 'SELECT id FROM assigned_users WHERE email = ?';
+        db.query(emailCheckSql, [email], async (err, emailCheckResults) => {
           if (err) {
             return res.status(500).json({ error: 'Database error', details: err.message });
           }
           
-          if (checkResults.length > 0) {
-            return res.status(409).json({ error: 'Login ID already exists' });
+          if (emailCheckResults.length > 0) {
+            return res.status(409).json({ error: 'Email already exists' });
           }
           
-          // Check if email already exists
-          const emailCheckSql = 'SELECT id FROM assigned_users WHERE email = ?';
-          db.query(emailCheckSql, [email], async (err, emailCheckResults) => {
+          // Hash the provided password
+          const saltRounds = 10;
+          const passwordHash = await bcrypt.hash(password, saltRounds);
+          
+          // Insert new user
+          const insertSql = `
+            INSERT INTO assigned_users (name, login_id, email, password_hash, role_id, department_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `;
+          
+          db.query(insertSql, [name, login_id, email, passwordHash, roleId, department_id], (err, result) => {
             if (err) {
               return res.status(500).json({ error: 'Database error', details: err.message });
             }
             
-            if (emailCheckResults.length > 0) {
-              return res.status(409).json({ error: 'Email already exists' });
-            }
-            
-            // Generate a default password (you might want to send this via email)
-            const defaultPassword = 'nss123456';
-            const saltRounds = 10;
-            const passwordHash = await bcrypt.hash(defaultPassword, saltRounds);
-            
-            // Insert new user
-            const insertSql = `
-              INSERT INTO assigned_users (name, login_id, email, password_hash, role_id, department_id)
-              VALUES (?, ?, ?, ?, ?, ?)
-            `;
-            
-            db.query(insertSql, [name, login_id, email, passwordHash, roleId, departmentId], (err, result) => {
-              if (err) {
-                return res.status(500).json({ error: 'Database error', details: err.message });
-              }
-              
-              res.status(201).json({ 
-                message: 'Student Coordinator added successfully',
-                id: result.insertId,
-                defaultPassword: defaultPassword
-              });
+            res.status(201).json({ 
+              message: 'Student Coordinator added successfully',
+              id: result.insertId
             });
           });
         });
@@ -391,6 +374,34 @@ router.delete('/users/student-coordinator/:id', verifyToken, (req, res) => {
         deletedUser: results[0].name
       });
     });
+  });
+});
+
+// Get all institutes
+router.get('/institutes', verifyToken, (req, res) => {
+  const sql = 'SELECT id, name FROM institutes ORDER BY name ASC';
+  
+  db.query(sql, (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error', details: err.message });
+    }
+    
+    res.json(results);
+  });
+});
+
+// Get departments by institute
+router.get('/departments/:instituteId', verifyToken, (req, res) => {
+  const { instituteId } = req.params;
+  
+  const sql = 'SELECT id, name FROM departments WHERE institute_id = ? ORDER BY name ASC';
+  
+  db.query(sql, [instituteId], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error', details: err.message });
+    }
+    
+    res.json(results);
   });
 });
 
