@@ -44,7 +44,9 @@ import {
   Search,
   FileText,
   FileUp,
-  Download
+  Download,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -77,6 +79,11 @@ const Events = () => {
     report_file: null,
     submitted_by: ""
   });
+
+  const [submittedEventIds, setSubmittedEventIds] = useState([]);
+
+  const [deptCurrentPage, setDeptCurrentPage] = useState(1);
+  const [deptItemsPerPage] = useState(10);
 
   React.useEffect(() => {
     const token = localStorage.getItem("nssUserToken");
@@ -513,13 +520,34 @@ Date: _________________
     }
   };
 
-
+  // After fetching events and reports, cross-reference for SC
+  React.useEffect(() => {
+    if ((userRole === 'sc' || userRole === 'student coordinator') && events.length > 0) {
+      // Fetch reports for this SC
+      const fetchReports = async () => {
+        const token = localStorage.getItem("nssUserToken");
+        const res = await fetch("http://localhost:5000/api/events/reports", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setSubmittedEventIds(data.map(r => r.event_id));
+        }
+      };
+      fetchReports();
+    }
+  }, [userRole, events]);
 
   const filteredEvents = events.filter(event => {
     const matchesSearch = event.event_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       event.description.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesSearch;
   });
+
+  const deptIndexOfLast = deptCurrentPage * deptItemsPerPage;
+  const deptIndexOfFirst = deptIndexOfLast - deptItemsPerPage;
+  const deptCurrentItems = filteredEvents.slice(deptIndexOfFirst, deptIndexOfLast);
+  const deptTotalPages = Math.ceil(filteredEvents.length / deptItemsPerPage);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -782,7 +810,7 @@ Date: _________________
                 ? `View ${userDepartment} department events`
                 : userRole === 'po' || userRole === 'program officer'
                 ? `Manage ${userDepartment} department events`
-                : 'Manage Nevil'
+                : 'Manage Department Events'
               }
             </CardDescription>
           </CardHeader>
@@ -807,8 +835,8 @@ Date: _________________
                         Loading events...
                       </TableCell>
                     </TableRow>
-                  ) : filteredEvents.length > 0 ? (
-                    filteredEvents.map((event) => (
+                  ) : deptCurrentItems.length > 0 ? (
+                    deptCurrentItems.map((event) => (
                       <TableRow key={event.id}>
                         <TableCell>
                           <div className="font-medium">{event.event_name}</div>
@@ -830,13 +858,15 @@ Date: _________________
                             {/* Edit/Delete buttons for PO and PC users */}
                             {(userRole === 'po' || userRole === 'pc' || userRole === 'program officer' || userRole === 'program coordinator') && (
                               <>
-                                <Button
-                                  onClick={() => handleEditEvent(event)}
-                                  variant="outline"
-                                  size="sm"
-                                >
-                                  <Edit className="h-4 w-4" />
-                        </Button>
+                                {event.status !== 'completed' && (
+                                  <Button
+                                    onClick={() => handleEditEvent(event)}
+                                    variant="outline"
+                                    size="sm"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                )}
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
                                     <Button
@@ -845,7 +875,7 @@ Date: _________________
                                       className="border-red-500 text-red-500 hover:bg-red-50"
                                     >
                                       <Trash2 className="h-4 w-4" />
-                        </Button>
+                                    </Button>
                                   </AlertDialogTrigger>
                                   <AlertDialogContent>
                                     <AlertDialogHeader>
@@ -870,14 +900,30 @@ Date: _________________
                             
                             {/* Submit Report button for SC users */}
                             {(userRole === 'sc' || userRole === 'student coordinator') && (
-                              <Button
-                                onClick={() => handleSubmitReport(event)}
-                                variant="outline"
-                                size="sm"
-                                className="border-green-500 text-green-500 hover:bg-green-50"
-                              >
-                                <FileUp className="h-4 w-4" />
-                              </Button>
+                              <>
+                                {submittedEventIds.includes(event.id) ? (
+                                  <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-800 mr-2">Report Already Submitted</span>
+                                ) : null}
+                                <Button
+                                  onClick={() => {
+                                    if (submittedEventIds.includes(event.id)) {
+                                      toast({
+                                        title: "Report Already Submitted",
+                                        description: "You have already submitted a report for this event.",
+                                        variant: "destructive"
+                                      });
+                                    } else {
+                                      handleSubmitReport(event);
+                                    }
+                                  }}
+                                  variant="outline"
+                                  size="sm"
+                                  className={`border-green-500 text-green-500 hover:bg-green-50 ${submittedEventIds.includes(event.id) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                  disabled={submittedEventIds.includes(event.id)}
+                                >
+                                  <FileUp className="h-4 w-4" />
+                                </Button>
+                              </>
                             )}
                             
 
@@ -897,7 +943,28 @@ Date: _________________
                   )}
                 </TableBody>
               </Table>
-                      </div>
+            </div>
+            <div className="flex justify-end mt-4">
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setDeptCurrentPage(deptCurrentPage - 1)}
+                  disabled={deptCurrentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-gray-600">{deptCurrentPage} of {deptTotalPages}</span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setDeptCurrentPage(deptCurrentPage + 1)}
+                  disabled={deptCurrentPage === deptTotalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

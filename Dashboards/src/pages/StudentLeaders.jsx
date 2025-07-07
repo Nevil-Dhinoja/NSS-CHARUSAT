@@ -45,7 +45,9 @@ import {
   Edit,
   Trash2,
   MapPin,
-  GraduationCap
+  GraduationCap,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 
 const StudentLeaders = () => {
@@ -60,6 +62,8 @@ const StudentLeaders = () => {
   const [studentLeaders, setStudentLeaders] = useState([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   React.useEffect(() => {
     const token = localStorage.getItem("nssUserToken");
@@ -402,6 +406,11 @@ const StudentLeaders = () => {
     return matchesSearch;
   });
 
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredLeaders.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredLeaders.length / itemsPerPage);
+
   const getPositionBadge = (position) => {
     return position === "Head Student Coordinator"
       ? <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Head Coordinator</Badge>
@@ -667,8 +676,8 @@ const StudentLeaders = () => {
                         Loading student leaders...
                       </TableCell>
                     </TableRow>
-                  ) : filteredLeaders.length > 0 ? (
-                    filteredLeaders.map((leader) => (
+                  ) : currentItems.length > 0 ? (
+                    currentItems.map((leader) => (
                     <TableRow key={leader.id}>
                       <TableCell>
                         <div className="flex items-center">
@@ -751,6 +760,27 @@ const StudentLeaders = () => {
                   )}
                 </TableBody>
               </Table>
+            </div>
+            <div className="flex justify-end mt-4">
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-gray-600">{currentPage} of {totalPages}</span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

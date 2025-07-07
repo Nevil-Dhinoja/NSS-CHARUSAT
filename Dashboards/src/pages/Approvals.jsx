@@ -66,6 +66,10 @@ const Approvals = () => {
   const [selectedReport, setSelectedReport] = useState(null);
   const [approvalComments, setApprovalComments] = useState("");
   const { toast } = useToast();
+  const [eventCurrentPage, setEventCurrentPage] = useState(1);
+  const [eventItemsPerPage] = useState(10);
+  const [whCurrentPage, setWhCurrentPage] = useState(1);
+  const [whItemsPerPage] = useState(10);
 
   const fetchWorkingHours = async () => {
     const token = localStorage.getItem("nssUserToken");
@@ -417,6 +421,16 @@ const Approvals = () => {
     setCurrentPage(pageNumber);
   };
 
+  const eventIndexOfLast = eventCurrentPage * eventItemsPerPage;
+  const eventIndexOfFirst = eventIndexOfLast - eventItemsPerPage;
+  const eventCurrentItems = filteredEventApprovals.slice(eventIndexOfFirst, eventIndexOfLast);
+  const eventTotalPages = Math.ceil(filteredEventApprovals.length / eventItemsPerPage);
+
+  const whIndexOfLast = whCurrentPage * whItemsPerPage;
+  const whIndexOfFirst = whIndexOfLast - whItemsPerPage;
+  const whCurrentItems = currentItems.slice(whIndexOfFirst, whIndexOfLast);
+  const whTotalPages = Math.ceil(currentItems.length / whItemsPerPage);
+
   React.useEffect(() => {
     const token = localStorage.getItem("nssUserToken");
     const userStr = localStorage.getItem("nssUser");
@@ -575,8 +589,8 @@ const Approvals = () => {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ) : filteredEventApprovals.length > 0 ? (
-                    filteredEventApprovals.map((approval) => (
+                  ) : eventCurrentItems.length > 0 ? (
+                    eventCurrentItems.map((approval) => (
                       <TableRow key={approval.id}>
                         <TableCell>
                           <div>
@@ -651,6 +665,27 @@ const Approvals = () => {
                 </TableBody>
               </Table>
             </div>
+            <div className="flex justify-end mt-4">
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setEventCurrentPage(eventCurrentPage - 1)}
+                  disabled={eventCurrentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-gray-600">{eventCurrentPage} of {eventTotalPages}</span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setEventCurrentPage(eventCurrentPage + 1)}
+                  disabled={eventCurrentPage === eventTotalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -696,8 +731,8 @@ const Approvals = () => {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ) : filteredWorkingHoursApprovals.length > 0 ? (
-                    currentItems.map((approval) => (
+                  ) : whCurrentItems.length > 0 ? (
+                    whCurrentItems.map((approval) => (
                       <TableRow key={approval.id}>
                         <TableCell>
                           <div className="flex items-center">
@@ -765,27 +800,27 @@ const Approvals = () => {
                 </TableBody>
               </Table>
             </div>
-            {filteredWorkingHoursApprovals.length > itemsPerPage && (
-              <div className="flex justify-end mt-4">
-                <div className="flex items-center space-x-2">
-                  <Button
-                    size="sm"
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <span className="text-sm text-gray-600">{currentPage} of {totalPages}</span>
-                  <Button
-                    size="sm"
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
+            <div className="flex justify-end mt-4">
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setWhCurrentPage(whCurrentPage - 1)}
+                  disabled={whCurrentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-gray-600">{whCurrentPage} of {whTotalPages}</span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setWhCurrentPage(whCurrentPage + 1)}
+                  disabled={whCurrentPage === whTotalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
-            )}
+            </div>
           </CardContent>
         </Card>
 

@@ -15,7 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Clock, Plus, Calendar, CheckCircle, XCircle, Edit, Trash2, Target } from "lucide-react";
+import { Clock, Plus, Calendar, CheckCircle, XCircle, Edit, Trash2, Target, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -60,6 +60,9 @@ const WorkingHours = () => {
 
   // Constants for NSS requirements
   const REQUIRED_HOURS = 120;
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   const fetchWorkingHours = async () => {
     const token = localStorage.getItem("nssUserToken");
@@ -186,6 +189,11 @@ const WorkingHours = () => {
     
     return monthMatch && yearMatch;
   });
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredWorkingHours.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredWorkingHours.length / itemsPerPage);
 
   const handleEditEntry = (entry) => {
     setEditEntry({
@@ -703,8 +711,8 @@ const WorkingHours = () => {
                         Loading working hours...
                       </TableCell>
                     </TableRow>
-                  ) : filteredWorkingHours.length > 0 ? (
-                    filteredWorkingHours.map((entry) => (
+                  ) : currentItems.length > 0 ? (
+                    currentItems.map((entry) => (
                     <TableRow key={entry.id}>
                       <TableCell>{new Date(entry.date).toLocaleDateString()}</TableCell>
                         <TableCell className="font-medium">{entry.activity_name}</TableCell>
@@ -784,6 +792,27 @@ const WorkingHours = () => {
                   )}
                 </TableBody>
               </Table>
+            </div>
+            <div className="flex justify-end mt-4">
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-gray-600">{currentPage} of {totalPages}</span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

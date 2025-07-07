@@ -388,20 +388,11 @@ const Reports = () => {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={isPO ? 6 : (isSC ? 6 : 5)} className="text-center py-4">
+                      <TableCell colSpan={7} className="text-center py-4">
                         Loading reports...
                       </TableCell>
                     </TableRow>
-                  ) : reports.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={isPO ? 6 : (isSC ? 6 : 5)} className="text-center py-4">
-                        {isPO 
-                          ? "No reports found. Reports will appear here when submitted by Student Coordinators."
-                          : "No reports found. Submit reports from the Events page."
-                        }
-                      </TableCell>
-                    </TableRow>
-                  ) : (
+                  ) : currentItems.length > 0 ? (
                     currentItems.map((report) => (
                       <TableRow key={report.id}>
                         <TableCell>
@@ -492,29 +483,37 @@ const Reports = () => {
                       </TableCell>
                     </TableRow>
                     ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-4">
+                        No reports found.
+                      </TableCell>
+                    </TableRow>
                   )}
                 </TableBody>
               </Table>
             </div>
-            {reports.length > 0 && (
-              <div className="mt-4 flex items-center justify-center">
+            <div className="flex justify-end mt-4">
+              <div className="flex items-center space-x-2">
                 <Button
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage - 1)}
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentPage(currentPage - 1)}
                   disabled={currentPage === 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <span className="mx-2">{currentPage} of {totalPages}</span>
+                <span className="text-sm text-gray-600">{currentPage} of {totalPages}</span>
                 <Button
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage + 1)}
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentPage(currentPage + 1)}
                   disabled={currentPage === totalPages}
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
-            )}
+            </div>
           </CardContent>
         </Card>
 

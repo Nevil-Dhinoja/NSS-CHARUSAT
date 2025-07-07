@@ -8,7 +8,9 @@ import {
   FileText, 
   PlusCircle, 
   User, 
-  Users 
+  Users,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -19,9 +21,21 @@ const StudentCoordinatorDashboard = ({ isHeadCoordinator = false }) => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const [recentEvents, setRecentEvents] = useState([]);
+  const [departmentEvents, setDepartmentEvents] = useState([]);
+  const [submittedEventIds, setSubmittedEventIds] = useState([]);
+  const [userRole, setUserRole] = useState("");
+  const [userDepartment, setUserDepartment] = useState("");
 
   // Constants for NSS requirements
   const REQUIRED_HOURS = 120;
+
+  // Add pagination state for all tables
+  const [deptCurrentPage, setDeptCurrentPage] = useState(1);
+  const [deptItemsPerPage] = useState(10);
+  const [reportsCurrentPage, setReportsCurrentPage] = useState(1);
+  const [reportsItemsPerPage] = useState(10);
+  const [whCurrentPage, setWhCurrentPage] = useState(1);
+  const [whItemsPerPage] = useState(10);
 
   const fetchWorkingHours = async () => {
     const token = localStorage.getItem("nssUserToken");
@@ -117,11 +131,59 @@ const StudentCoordinatorDashboard = ({ isHeadCoordinator = false }) => {
     }
   };
 
+  const fetchDepartmentEvents = async () => {
+    const token = localStorage.getItem("nssUserToken");
+    if (!token || userRole !== 'sc' && userRole !== 'student coordinator' || !userDepartment) return;
+    const endpoint = `http://localhost:5000/api/events/department/${encodeURIComponent(userDepartment)}`;
+    const response = await fetch(endpoint, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (response.ok) {
+      const data = await response.json();
+      setDepartmentEvents(data);
+    }
+  };
+
+  const fetchSubmittedReports = async () => {
+    const token = localStorage.getItem("nssUserToken");
+    if (!token || userRole !== 'sc' && userRole !== 'student coordinator') return;
+    const res = await fetch("http://localhost:5000/api/events/reports", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setSubmittedEventIds(data.map(r => r.event_id));
+    }
+  };
+
+  useEffect(() => {
+    // Get user info from localStorage
+    const token = localStorage.getItem("nssUserToken");
+    const userStr = localStorage.getItem("nssUser");
+    if (!token || !userStr) {
+      window.location.href = "/login";
+      return;
+    }
+    try {
+      const user = JSON.parse(userStr);
+      const role = user.role ? user.role.toLowerCase() : "";
+      setUserRole(role);
+      setUserDepartment(user.department || "");
+    } catch (err) {
+      localStorage.clear();
+      window.location.href = "/login";
+    }
+  }, []);
+
   useEffect(() => {
     fetchWorkingHours();
     fetchRecentEvents();
     fetchRecentReports();
-  }, []);
+    if (userRole === 'sc' || userRole === 'student coordinator') {
+      fetchDepartmentEvents();
+      fetchSubmittedReports();
+    }
+  }, [userRole, userDepartment]);
 
   // Calculate dynamic stats from real data
   const calculateStats = () => {
@@ -157,6 +219,22 @@ const StudentCoordinatorDashboard = ({ isHeadCoordinator = false }) => {
   const stats = calculateStats();
   const recentWorking = getRecentWorkingHours();
   
+  // Department Events pagination
+  const deptIndexOfLast = deptCurrentPage * deptItemsPerPage;
+  const deptIndexOfFirst = deptIndexOfLast - deptItemsPerPage;
+  const deptCurrentItems = departmentEvents.slice(deptIndexOfFirst, deptIndexOfLast);
+  const deptTotalPages = Math.ceil(departmentEvents.length / deptItemsPerPage);
+  // Recent Reports pagination
+  const reportsIndexOfLast = reportsCurrentPage * reportsItemsPerPage;
+  const reportsIndexOfFirst = reportsIndexOfLast - reportsItemsPerPage;
+  const reportsCurrentItems = recentReports.slice(reportsIndexOfFirst, reportsIndexOfLast);
+  const reportsTotalPages = Math.ceil(recentReports.length / reportsItemsPerPage);
+  // Working Hours pagination
+  const whIndexOfLast = whCurrentPage * whItemsPerPage;
+  const whIndexOfFirst = whIndexOfLast - whItemsPerPage;
+  const whCurrentItems = recentWorking.slice(whIndexOfFirst, whIndexOfLast);
+  const whTotalPages = Math.ceil(recentWorking.length / whItemsPerPage);
+  
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -183,13 +261,14 @@ const StudentCoordinatorDashboard = ({ isHeadCoordinator = false }) => {
           </p>
         </Card>
         
+        {/* Reports Submitted Card */}
         <div className="nss-dashboard-card flex items-center space-x-4">
-          <div className="bg-blue-50 p-3 rounded-lg">
-            <Calendar className="h-6 w-6 text-blue-600" />
+          <div className="bg-green-50 p-3 rounded-lg">
+            <FileText className="h-6 w-6 text-green-600" />
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">Events Participated</p>
-            <h3 className="text-2xl font-bold text-blue-600">{stats.events}</h3>
+            <p className="text-sm text-muted-foreground">Reports Submitted</p>
+            <h3 className="text-2xl font-bold text-green-600">{recentReports.length}</h3>
           </div>
         </div>
       </div>
@@ -218,8 +297,8 @@ const StudentCoordinatorDashboard = ({ isHeadCoordinator = false }) => {
                     Loading working hours...
                   </td>
                 </tr>
-              ) : recentWorking.length > 0 ? (
-                recentWorking.map((item) => (
+              ) : whCurrentItems.length > 0 ? (
+                whCurrentItems.map((item) => (
                 <tr key={item.id} className="border-b hover:bg-muted/50">
                   <td className="p-2">{item.activity}</td>
                     <td className="p-2 text-center">{item.hours.toFixed(1)}</td>
@@ -245,6 +324,27 @@ const StudentCoordinatorDashboard = ({ isHeadCoordinator = false }) => {
             </tbody>
           </table>
         </div>
+        <div className="flex justify-end mt-4">
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setWhCurrentPage(whCurrentPage - 1)}
+              disabled={whCurrentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm text-gray-600">{whCurrentPage} of {whTotalPages}</span>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setWhCurrentPage(whCurrentPage + 1)}
+              disabled={whCurrentPage === whTotalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       </Card>
       
       {/* Recent Reports */}
@@ -265,8 +365,8 @@ const StudentCoordinatorDashboard = ({ isHeadCoordinator = false }) => {
               </tr>
             </thead>
             <tbody>
-              {recentReports.length > 0 ? (
-                recentReports.map((report) => (
+              {reportsCurrentItems.length > 0 ? (
+                reportsCurrentItems.map((report) => (
                   <tr key={report.id} className="border-b hover:bg-muted/50">
                     <td className="p-2 font-medium">{report.event_name}</td>
                     <td className="p-2">
@@ -296,43 +396,95 @@ const StudentCoordinatorDashboard = ({ isHeadCoordinator = false }) => {
             </tbody>
           </table>
         </div>
+        <div className="flex justify-end mt-4">
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setReportsCurrentPage(reportsCurrentPage - 1)}
+              disabled={reportsCurrentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm text-gray-600">{reportsCurrentPage} of {reportsTotalPages}</span>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setReportsCurrentPage(reportsCurrentPage + 1)}
+              disabled={reportsCurrentPage === reportsTotalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       </Card>
 
-      {/* Recent Events */}
-      <Card className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg sm:text-xl font-semibold text-blue-900">Recent Events</h2>
-          <Link to="/events" className="text-blue-600 hover:underline text-sm">View All</Link>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {recentEvents.length > 0 ? (
-            recentEvents.slice(0, 5).map((event) => (
-            <div key={event.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                <h3 className="font-medium text-blue-900">{event.event_name}</h3>
-              <div className="mt-2 space-y-1 text-sm">
-                <p className="flex items-center text-muted-foreground">
-                  <Calendar className="h-4 w-4 mr-2" />
-                    {event.event_date ? new Date(event.event_date).toLocaleDateString() : 'N/A'}
-                </p>
-                <p className="flex items-center text-muted-foreground">
-                  <User className="h-4 w-4 mr-2" />
-                    {event.status}
-                </p>
-              </div>
-              <div className="mt-3">
-                <Button variant="outline" size="sm" className="border-blue-600 text-blue-600 hover:bg-blue-50">
-                  View Details
-                </Button>
-              </div>
+      {/* Department Events Table for SC */}
+      {(userRole === 'sc' || userRole === 'student coordinator') && (
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg sm:text-xl font-semibold text-blue-900">Department Events</h2>
+            <Link to="/events" className="text-blue-600 hover:underline text-sm">View All</Link>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-muted text-blue-900">
+                <tr>
+                  <th className="p-2 text-left">Event Name</th>
+                  <th className="p-2 text-left">Event Date</th>
+                  <th className="p-2 text-left">Status</th>
+                  <th className="p-2 text-left">Report</th>
+                </tr>
+              </thead>
+              <tbody>
+                {deptCurrentItems.length > 0 ? (
+                  deptCurrentItems.map(event => (
+                    <tr key={event.id} className="border-b hover:bg-muted/50">
+                      <td className="p-2 font-medium">{event.event_name}</td>
+                      <td className="p-2">{event.event_date ? new Date(event.event_date).toLocaleDateString() : 'N/A'}</td>
+                      <td className="p-2">{event.status}</td>
+                      <td className="p-2">
+                        {submittedEventIds.includes(event.id) ? (
+                          <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-800">Report Already Submitted</span>
+                        ) : (
+                          <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">Not Submitted</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="p-4 text-center text-muted-foreground">
+                      No department events found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex justify-end mt-4">
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setDeptCurrentPage(deptCurrentPage - 1)}
+                disabled={deptCurrentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm text-gray-600">{deptCurrentPage} of {deptTotalPages}</span>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setDeptCurrentPage(deptCurrentPage + 1)}
+                disabled={deptCurrentPage === deptTotalPages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
-            ))
-          ) : (
-            <div className="col-span-full text-center py-8 text-muted-foreground">
-              No recent events found.
-            </div>
-          )}
-        </div>
-      </Card>
+          </div>
+        </Card>
+      )}
     </div>
   );
 };
