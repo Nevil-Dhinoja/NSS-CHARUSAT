@@ -32,74 +32,136 @@ const upload = multer({
   }
 });
 
-// Get all events (for PC - all departments, for PO - their department only)
-router.get('/all', verifyToken, (req, res) => {
-  const userRole = req.user.role?.toLowerCase();
-  const userDepartment = req.user.department;
-  const userId = req.user.id;
-  
-  let sql = `
-    SELECT e.*, d.name as department_name, au.name as created_by_name
+// Test endpoint to check events (no authentication required)
+router.get('/test', (req, res) => {
+  const sql = `
+    SELECT e.*, d.name as department_name, au.name as created_by_name, au.role as creator_role
     FROM events e
     LEFT JOIN departments d ON e.department_id = d.id
     LEFT JOIN assigned_users au ON e.created_by = au.id
     ORDER BY e.event_date DESC, e.created_at DESC
   `;
   
+  db.query(sql, (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error', details: err.message });
+    }
+    
+    res.json({
+      total_events: results.length,
+      events: results,
+      message: 'Test data from events table'
+    });
+  });
+});
+
+// Get all events (for PC - all departments, for PO - their department only)
+router.get('/all', verifyToken, (req, res) => {
+  const userRole = req.user.role?.toLowerCase();
+  const userDepartment = req.user.department;
+  const userId = req.user.id;
+  
+  console.log('Events route - User role:', userRole, 'Department:', userDepartment, 'User ID:', userId);
+  
+  let sql = '';
   let params = [];
   
-  // For PO users, only show events from their department
-  if (userRole === 'po' || userRole === 'program officer') {
+  // For PC users, show all events from all departments
+  if (userRole === 'pc' || userRole === 'program coordinator') {
+    console.log('PC user - showing all events');
+    sql = `
+      SELECT e.*, d.name as department_name, au.name as created_by_name
+      FROM events e
+      LEFT JOIN departments d ON e.department_id = d.id
+      LEFT JOIN assigned_users au ON e.created_by = au.id
+      ORDER BY e.event_date DESC, e.created_at DESC
+    `;
+  }
+  // For PO users, only show events from their department (not PC-created events)
+  else if (userRole === 'po' || userRole === 'program officer') {
+    console.log('PO user - showing department events');
     // If userDepartment is undefined, get it from database
     if (!userDepartment) {
       const userSql = 'SELECT au.department_id, d.name as department_name FROM assigned_users au LEFT JOIN departments d ON au.department_id = d.id WHERE au.id = ?';
       db.query(userSql, [userId], (err, userResults) => {
         if (err) {
+          console.error('Database error getting user department:', err);
           return res.status(500).json({ error: 'Database error', details: err.message });
         }
         
         if (userResults.length === 0 || !userResults[0].department_id) {
+          console.log('User department not found for user:', userId);
           return res.status(400).json({ error: 'User department not found' });
         }
         
         const departmentName = userResults[0].department_name;
+        console.log('Found user department:', departmentName);
         
-        // Query events for this department
+        // Query events for this department (excluding PC-created events)
         const eventsSql = `
           SELECT e.*, d.name as department_name, au.name as created_by_name
           FROM events e
           LEFT JOIN departments d ON e.department_id = d.id
           LEFT JOIN assigned_users au ON e.created_by = au.id
-          WHERE e.department_id = ?
+          WHERE e.department_id = ? AND (au.role IS NULL OR au.role NOT IN ('pc', 'program coordinator'))
           ORDER BY e.event_date DESC, e.created_at DESC
         `;
         
         db.query(eventsSql, [userResults[0].department_id], (err, results) => {
           if (err) {
+            console.error('Database error getting events:', err);
             return res.status(500).json({ error: 'Database error', details: err.message });
           }
+          console.log('Events found for PO:', results.length);
           res.json(results);
         });
       });
       return;
     }
     
-    // If userDepartment is defined, use the original logic
+    // If userDepartment is defined, use the original logic but exclude PC-created events
     sql = `
       SELECT e.*, d.name as department_name, au.name as created_by_name
       FROM events e
       LEFT JOIN departments d ON e.department_id = d.id
       LEFT JOIN assigned_users au ON e.created_by = au.id
-      WHERE d.name = ? OR d.name = ?
+      WHERE (d.name = ? OR d.name = ?) AND (au.role IS NULL OR au.role NOT IN ('pc', 'program coordinator'))
       ORDER BY e.event_date DESC, e.created_at DESC
     `;
     params = [userDepartment, userDepartment + ' Engineering'];
   }
+  // For SC users, show all events (they will be filtered by department in frontend)
+  else if (userRole === 'sc' || userRole === 'student coordinator') {
+    console.log('SC user - showing all events (will be filtered by department)');
+    sql = `
+      SELECT e.*, d.name as department_name, au.name as created_by_name
+      FROM events e
+      LEFT JOIN departments d ON e.department_id = d.id
+      LEFT JOIN assigned_users au ON e.created_by = au.id
+      WHERE (au.role IS NULL OR au.role NOT IN ('pc', 'program coordinator'))
+      ORDER BY e.event_date DESC, e.created_at DESC
+    `;
+  }
+  // Fallback for any other role
+  else {
+    console.log('Unknown role - showing all events');
+    sql = `
+      SELECT e.*, d.name as department_name, au.name as created_by_name
+      FROM events e
+      LEFT JOIN departments d ON e.department_id = d.id
+      LEFT JOIN assigned_users au ON e.created_by = au.id
+      ORDER BY e.event_date DESC, e.created_at DESC
+    `;
+  }
+  
+  console.log('Executing SQL:', sql, 'with params:', params);
   
   db.query(sql, params, (err, results) => {
     if (err) {
+      console.error('Database error:', err);
       return res.status(500).json({ error: 'Database error', details: err.message });
     }
+    console.log('Events found:', results.length);
     res.json(results);
   });
 });
@@ -119,7 +181,7 @@ router.get('/department/:department', verifyToken, (req, res) => {
     FROM events e
     LEFT JOIN departments d ON e.department_id = d.id
     LEFT JOIN assigned_users au ON e.created_by = au.id
-    WHERE d.name = ? OR d.name = ?
+    WHERE (d.name = ? OR d.name = ?) AND au.role NOT IN ('pc', 'program coordinator')
     ORDER BY e.event_date DESC, e.created_at DESC
   `;
   
@@ -418,8 +480,8 @@ router.get('/reports', verifyToken, (req, res) => {
   const userRole = req.user.role?.toLowerCase();
   const userId = req.user.id;
   
-  if (userRole !== 'po' && userRole !== 'program officer' && userRole !== 'sc' && userRole !== 'student coordinator') {
-    return res.status(403).json({ error: 'Access denied. Only Program Officers and Student Coordinators can view reports.' });
+  if (userRole !== 'po' && userRole !== 'program officer' && userRole !== 'sc' && userRole !== 'student coordinator' && userRole !== 'pc' && userRole !== 'program coordinator') {
+    return res.status(403).json({ error: 'Access denied. Only Program Officers, Program Coordinators, and Student Coordinators can view reports.' });
   }
   
   // Get user's department
@@ -439,17 +501,29 @@ router.get('/reports', verifyToken, (req, res) => {
     let params;
     
     if (userRole === 'po' || userRole === 'program officer') {
-      // PO sees all reports from their department
+      // PO sees all reports from their department (excluding PC-submitted reports)
       reportsSql = `
         SELECT er.*, e.event_name, e.event_date, d.name as department_name, au.name as submitted_by_name
         FROM event_reports er
         LEFT JOIN events e ON er.event_id = e.id
         LEFT JOIN departments d ON e.department_id = d.id
         LEFT JOIN assigned_users au ON er.submitted_by_id = au.id
-        WHERE e.department_id = ?
+        LEFT JOIN roles r ON au.role_id = r.id
+        WHERE e.department_id = ? AND (r.role_name IS NULL OR r.role_name NOT IN ('Program Coordinator', 'PC'))
         ORDER BY er.created_at DESC
       `;
       params = [departmentId];
+    } else if (userRole === 'pc' || userRole === 'program coordinator') {
+      // PC sees all reports from all departments
+      reportsSql = `
+        SELECT er.*, e.event_name, e.event_date, d.name as department_name, au.name as submitted_by_name
+        FROM event_reports er
+        LEFT JOIN events e ON er.event_id = e.id
+        LEFT JOIN departments d ON e.department_id = d.id
+        LEFT JOIN assigned_users au ON er.submitted_by_id = au.id
+        ORDER BY er.created_at DESC
+      `;
+      params = [];
     } else {
       // SC sees only their own submitted reports
       reportsSql = `

@@ -115,7 +115,7 @@ router.get('/department/:department', verifyToken, (req, res) => {
 router.get('/department/my', verifyToken, (req, res) => {
   // Accept both 'PO' and 'Program Officer' (case-insensitive)
   const role = (req.user.role || '').toLowerCase();
-  if (role !== 'program officer' && role !== 'po' && role !== 'pc') {
+  if (role !== 'program officer' && role !== 'po' && role !== 'pc' && role !== 'program coordinator') {
     return res.status(403).json({ error: 'Access denied. Only Program Officers and Program Coordinators can view working hours.' });
   }
 
@@ -156,7 +156,7 @@ router.get('/all', verifyToken, (req, res) => {
   // Accept both 'PO' and 'Program Officer' (case-insensitive)
   const role = (req.user.role || '').toLowerCase();
   
-  if (role !== 'program officer' && role !== 'po' && role !== 'pc') {
+  if (role !== 'program officer' && role !== 'po' && role !== 'pc' && role !== 'program coordinator') {
     return res.status(403).json({ 
       error: 'Access denied. Only Program Officers and Program Coordinators can view all working hours.',
       userRole: req.user.role,
@@ -256,7 +256,7 @@ router.put('/update-status/:id', verifyToken, (req, res) => {
 
   // Accept both 'PO' and 'Program Officer' (case-insensitive)
   const role = (req.user.role || '').toLowerCase();
-  if (role !== 'program officer' && role !== 'po' && role !== 'pc') {
+  if (role !== 'program officer' && role !== 'po' && role !== 'pc' && role !== 'program coordinator') {
     return res.status(403).json({ error: 'Access denied. Only Program Officers and Program Coordinators can update status.' });
   }
 
@@ -337,7 +337,7 @@ router.put('/approve/:id', verifyToken, (req, res) => {
 
   // Accept both 'PO' and 'Program Officer' (case-insensitive)
   const role = (req.user.role || '').toLowerCase();
-  if (role !== 'program officer' && role !== 'po' && role !== 'pc') {
+  if (role !== 'program officer' && role !== 'po' && role !== 'pc' && role !== 'program coordinator') {
     return res.status(403).json({ error: 'Access denied. Only Program Officers and Program Coordinators can approve working hours.' });
   }
 
@@ -414,7 +414,7 @@ router.put('/reject/:id', verifyToken, (req, res) => {
 
   // Accept both 'PO' and 'Program Officer' (case-insensitive)
   const role = (req.user.role || '').toLowerCase();
-  if (role !== 'program officer' && role !== 'po' && role !== 'pc') {
+  if (role !== 'program officer' && role !== 'po' && role !== 'pc' && role !== 'program coordinator') {
     return res.status(403).json({ error: 'Access denied. Only Program Officers and Program Coordinators can reject working hours.' });
   }
 

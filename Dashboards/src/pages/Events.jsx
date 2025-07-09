@@ -112,19 +112,31 @@ const Events = () => {
 
   // Fetch events when user data is loaded
   React.useEffect(() => {
-    if (userRole && userDepartment) {
+    if (userRole) {
       fetchEvents();
     }
   }, [userRole, userDepartment]);
 
   const fetchEvents = async () => {
     const token = localStorage.getItem("nssUserToken");
+    if (!token) {
+      toast({
+        title: "Authentication Error",
+        description: "No token found. Please login again.",
+        variant: "destructive"
+      });
+      window.location.href = "/login";
+      return;
+    }
+
     try {
       // For SC users, fetch department-specific events
       // For PO/PC users, fetch all events (filtered by department for PO)
       const endpoint = (userRole === "sc" || userRole === "student coordinator") 
-        ? `http://localhost:5000/api/events/department/${encodeURIComponent(userDepartment)}`
+        ? `http://localhost:5000/api/events/department/${encodeURIComponent(userDepartment || '')}`
         : "http://localhost:5000/api/events/all";
+
+      console.log('Fetching events from:', endpoint, 'for role:', userRole, 'department:', userDepartment);
 
       const response = await fetch(endpoint, {
         headers: {
@@ -134,18 +146,22 @@ const Events = () => {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Events fetched:', data);
         setEvents(data);
       } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to fetch events:', response.status, errorData);
         toast({
           title: "Error",
-          description: "Failed to fetch events",
+          description: errorData.error || "Failed to fetch events",
           variant: "destructive"
         });
       }
     } catch (error) {
-    toast({
+      console.error('Error fetching events:', error);
+      toast({
         title: "Error",
-        description: "Failed to fetch events",
+        description: "Failed to fetch events: " + error.message,
         variant: "destructive"
       });
     } finally {
@@ -538,16 +554,30 @@ Date: _________________
     }
   }, [userRole, events]);
 
-  const filteredEvents = events.filter(event => {
-    const matchesSearch = event.event_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      event.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
-  });
+  // Add filtering and pagination logic
+  const filteredEvents = events.filter(event =>
+    event.event_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    event.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    event.department_name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
+  console.log('Events state:', events);
+  console.log('Filtered events:', filteredEvents);
+  console.log('Search query:', searchQuery);
+
+  // Pagination logic
   const deptIndexOfLast = deptCurrentPage * deptItemsPerPage;
   const deptIndexOfFirst = deptIndexOfLast - deptItemsPerPage;
   const deptCurrentItems = filteredEvents.slice(deptIndexOfFirst, deptIndexOfLast);
   const deptTotalPages = Math.ceil(filteredEvents.length / deptItemsPerPage);
+
+  console.log('Current page items:', deptCurrentItems);
+  console.log('Total pages:', deptTotalPages);
+
+  // Reset page when search changes
+  React.useEffect(() => {
+    setDeptCurrentPage(1);
+  }, [searchQuery]);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -570,6 +600,41 @@ Date: _________________
         return <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">Hybrid</Badge>;
       default:
         return <Badge variant="secondary">Unknown</Badge>;
+    }
+  };
+
+  const testEventsEndpoint = async () => {
+    const token = localStorage.getItem("nssUserToken");
+    try {
+      const response = await fetch("http://localhost:5000/api/events/test", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Test endpoint response:', data);
+        toast({
+          title: "Test Results",
+          description: `Found ${data.total_events} events in database`,
+        });
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Test endpoint error:', response.status, errorData);
+        toast({
+          title: "Test Error",
+          description: errorData.error || "Failed to test events endpoint",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Test endpoint error:', error);
+      toast({
+        title: "Test Error",
+        description: "Failed to test events endpoint: " + error.message,
+        variant: "destructive"
+      });
     }
   };
 
@@ -831,8 +896,11 @@ Date: _________________
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={(userRole === 'po' || userRole === 'pc' || userRole === 'program officer' || userRole === 'program coordinator') ? 7 : 6} className="text-center py-4">
-                        Loading events...
+                      <TableCell colSpan={7} className="text-center py-4">
+                        <div className="flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                          Loading events...
+                        </div>
                       </TableCell>
                     </TableRow>
                   ) : deptCurrentItems.length > 0 ? (
@@ -933,7 +1001,7 @@ Date: _________________
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={(userRole === 'po' || userRole === 'pc' || userRole === 'program officer' || userRole === 'program coordinator') ? 7 : 6} className="text-center py-4">
+                      <TableCell colSpan={7} className="text-center py-4">
                         {events.length === 0 
                           ? "No events found. Start by adding your first event!"
                           : "No events found for the selected filters."
@@ -944,7 +1012,12 @@ Date: _________________
                 </TableBody>
               </Table>
             </div>
-            <div className="flex justify-end mt-4">
+            
+            {/* Pagination Info and Controls */}
+            <div className="flex items-center justify-between mt-4">
+              <div className="text-sm text-gray-600">
+                Showing {deptCurrentItems.length > 0 ? (deptCurrentPage - 1) * deptItemsPerPage + 1 : 0} to {Math.min(deptCurrentPage * deptItemsPerPage, filteredEvents.length)} of {filteredEvents.length} results
+              </div>
               <div className="flex items-center space-x-2">
                 <Button
                   variant="outline"

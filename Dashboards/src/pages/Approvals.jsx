@@ -371,7 +371,7 @@ const Approvals = () => {
   // Use real reports data instead of mock data for event approvals
   const eventApprovals = userRole === "po" ? 
     reports.filter(report => report.department_name === userDepartment) : 
-    reports;
+    reports; // PC can see all reports
   
   const getStatusBadge = (status) => {
     if (!status) return <Badge variant="secondary">Unknown</Badge>;
@@ -485,7 +485,7 @@ const Approvals = () => {
             <p className="text-gray-600 mt-1">
               {userRole === 'po' ? 
                 'Review and manage pending reports and working hours approvals for your department' :
-                'Review and manage working hours approvals'
+                'Review and manage all event reports and working hours approvals'
               }
             </p>
           </div>
@@ -528,7 +528,8 @@ const Approvals = () => {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Approved</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {workingHours.filter(a => a.status && a.status.toLowerCase() === "approved").length}
+                    {workingHours.filter(a => a.status && a.status.toLowerCase() === "approved").length +
+                      (userRole === 'pc' ? eventApprovals.filter(a => a.status && a.status.toLowerCase() === "approved").length : 0)}
                   </p>
                 </div>
               </div>
@@ -544,7 +545,8 @@ const Approvals = () => {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Rejected</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {workingHours.filter(a => a.status && a.status.toLowerCase() === "rejected").length}
+                    {workingHours.filter(a => a.status && a.status.toLowerCase() === "rejected").length +
+                      (userRole === 'pc' ? eventApprovals.filter(a => a.status && a.status.toLowerCase() === "rejected").length : 0)}
                   </p>
                 </div>
               </div>
@@ -562,7 +564,7 @@ const Approvals = () => {
             <CardDescription>
               {userRole === 'po' ? 
                 `Review event reports from your department - pending, approved, and rejected (${filteredEventApprovals.length})` :
-                `Review student event reports and proposals (${filteredEventApprovals.length})`
+                `Review all student event reports and proposals (${filteredEventApprovals.length})`
               }
             </CardDescription>
           </CardHeader>
@@ -665,7 +667,12 @@ const Approvals = () => {
                 </TableBody>
               </Table>
             </div>
-            <div className="flex justify-end mt-4">
+            
+            {/* Pagination Info and Controls */}
+            <div className="flex items-center justify-between mt-4">
+              <div className="text-sm text-gray-600">
+                Showing {eventCurrentItems.length > 0 ? (eventCurrentPage - 1) * eventItemsPerPage + 1 : 0} to {Math.min(eventCurrentPage * eventItemsPerPage, filteredEventApprovals.length)} of {filteredEventApprovals.length} results
+              </div>
               <div className="flex items-center space-x-2">
                 <Button
                   variant="outline"
@@ -800,7 +807,12 @@ const Approvals = () => {
                 </TableBody>
               </Table>
             </div>
-            <div className="flex justify-end mt-4">
+            
+            {/* Pagination Info and Controls */}
+            <div className="flex items-center justify-between mt-4">
+              <div className="text-sm text-gray-600">
+                Showing {whCurrentItems.length > 0 ? (whCurrentPage - 1) * whItemsPerPage + 1 : 0} to {Math.min(whCurrentPage * whItemsPerPage, currentItems.length)} of {currentItems.length} results
+              </div>
               <div className="flex items-center space-x-2">
                 <Button
                   variant="outline"

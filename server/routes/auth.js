@@ -405,4 +405,206 @@ router.get('/departments/:instituteId', verifyToken, (req, res) => {
   });
 });
 
+// Add new program officer
+router.post('/users/program-officer', verifyToken, async (req, res) => {
+  const { name, login_id, email, institute_id, department_id, password } = req.body;
+  
+  // Check if user has permission to add users
+  const userRole = req.user.role?.toLowerCase();
+  const allowedRoles = ['pc', 'program coordinator'];
+  
+  if (!allowedRoles.includes(userRole)) {
+    return res.status(403).json({ error: 'Access denied. Only Program Coordinators can add program officers.' });
+  }
+
+  if (!name || !login_id || !email || !institute_id || !department_id || !password) {
+    return res.status(400).json({ error: 'Name, login ID, email, institute, department, and password are required' });
+  }
+
+  try {
+    // Get role ID for Program Officer
+    const roleSql = 'SELECT id FROM roles WHERE role_name = "Program Officer"';
+    db.query(roleSql, async (err, roleResults) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error', details: err.message });
+      }
+      
+      if (roleResults.length === 0) {
+        return res.status(404).json({ error: 'Program Officer role not found' });
+      }
+      
+      const roleId = roleResults[0].id;
+      
+      // Check if login_id already exists
+      const checkSql = 'SELECT id FROM assigned_users WHERE login_id = ?';
+      db.query(checkSql, [login_id], async (err, checkResults) => {
+        if (err) {
+          return res.status(500).json({ error: 'Database error', details: err.message });
+        }
+        
+        if (checkResults.length > 0) {
+          return res.status(409).json({ error: 'Login ID already exists' });
+        }
+        
+        // Check if email already exists
+        const emailCheckSql = 'SELECT id FROM assigned_users WHERE email = ?';
+        db.query(emailCheckSql, [email], async (err, emailCheckResults) => {
+          if (err) {
+            return res.status(500).json({ error: 'Database error', details: err.message });
+          }
+          
+          if (emailCheckResults.length > 0) {
+            return res.status(409).json({ error: 'Email already exists' });
+          }
+          
+          // Hash the provided password
+          const saltRounds = 10;
+          const passwordHash = await bcrypt.hash(password, saltRounds);
+          
+          // Insert new user
+          const insertSql = `
+            INSERT INTO assigned_users (name, login_id, email, password_hash, role_id, department_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `;
+          
+          db.query(insertSql, [name, login_id, email, passwordHash, roleId, department_id], (err, result) => {
+            if (err) {
+              return res.status(500).json({ error: 'Database error', details: err.message });
+            }
+            
+            res.status(201).json({ 
+              message: 'Program Officer added successfully',
+              id: result.insertId
+            });
+          });
+        });
+      });
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// Update program officer
+router.put('/users/program-officer/:id', verifyToken, async (req, res) => {
+  const { id } = req.params;
+  const { name, login_id, email, institute_id, department_id, password } = req.body;
+  
+  // Check if user has permission to edit users
+  const userRole = req.user.role?.toLowerCase();
+  const allowedRoles = ['pc', 'program coordinator'];
+  
+  if (!allowedRoles.includes(userRole)) {
+    return res.status(403).json({ error: 'Access denied. Only Program Coordinators can edit program officers.' });
+  }
+
+  if (!name || !login_id || !email || !institute_id || !department_id) {
+    return res.status(400).json({ error: 'Name, login ID, email, institute, and department are required' });
+  }
+
+  try {
+    // Check if login_id already exists (excluding current user)
+    const checkSql = 'SELECT id FROM assigned_users WHERE login_id = ? AND id != ?';
+    db.query(checkSql, [login_id, id], async (err, checkResults) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error', details: err.message });
+      }
+      
+      if (checkResults.length > 0) {
+        return res.status(409).json({ error: 'Login ID already exists' });
+      }
+      
+      // Check if email already exists (excluding current user)
+      const emailCheckSql = 'SELECT id FROM assigned_users WHERE email = ? AND id != ?';
+      db.query(emailCheckSql, [email, id], async (err, emailCheckResults) => {
+        if (err) {
+          return res.status(500).json({ error: 'Database error', details: err.message });
+        }
+        
+        if (emailCheckResults.length > 0) {
+          return res.status(409).json({ error: 'Email already exists' });
+        }
+        
+        // Update user
+        let updateSql = `
+          UPDATE assigned_users 
+          SET name = ?, login_id = ?, email = ?, department_id = ?
+          WHERE id = ?
+        `;
+        let updateParams = [name, login_id, email, department_id, id];
+        
+        // If password is provided, update it too
+        if (password) {
+          const saltRounds = 10;
+          const passwordHash = await bcrypt.hash(password, saltRounds);
+          updateSql = `
+            UPDATE assigned_users 
+            SET name = ?, login_id = ?, email = ?, password_hash = ?, department_id = ?
+            WHERE id = ?
+          `;
+          updateParams = [name, login_id, email, passwordHash, department_id, id];
+        }
+        
+        db.query(updateSql, updateParams, (err, result) => {
+          if (err) {
+            return res.status(500).json({ error: 'Database error', details: err.message });
+          }
+          
+          if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'User not found' });
+          }
+          
+          res.json({ message: 'Program Officer updated successfully' });
+        });
+      });
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// Delete program officer
+router.delete('/users/program-officer/:id', verifyToken, (req, res) => {
+  const { id } = req.params;
+  
+  // Check if user has permission to delete users
+  const userRole = req.user.role?.toLowerCase();
+  const allowedRoles = ['pc', 'program coordinator'];
+  
+  if (!allowedRoles.includes(userRole)) {
+    return res.status(403).json({ error: 'Access denied. Only Program Coordinators can delete program officers.' });
+  }
+
+  // Check if user exists and is a Program Officer
+  const checkSql = `
+    SELECT au.id, au.name, r.role_name
+    FROM assigned_users au
+    LEFT JOIN roles r ON au.role_id = r.id
+    WHERE au.id = ? AND r.role_name = 'Program Officer'
+  `;
+  
+  db.query(checkSql, [id], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error', details: err.message });
+    }
+    
+    if (results.length === 0) {
+      return res.status(404).json({ error: 'Program Officer not found' });
+    }
+    
+    // Delete the user
+    const deleteSql = 'DELETE FROM assigned_users WHERE id = ?';
+    db.query(deleteSql, [id], (err, result) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error', details: err.message });
+      }
+      
+      res.json({ 
+        message: 'Program Officer deleted successfully',
+        deletedUser: results[0].name
+      });
+    });
+  });
+});
+
 module.exports = router;
