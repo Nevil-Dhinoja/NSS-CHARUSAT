@@ -131,13 +131,41 @@ const WorkingHoursApproval = () => {
   ];
 
   const handleApprove = (id) => {
-    console.log("Approving working hours with ID:", id);
+    
     // In real app, this would make API call
   };
 
-  const handleReject = (id) => {
-    console.log("Rejecting working hours with ID:", id);
-    // In real app, this would make API call
+  const handleReject = async (id) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/working-hours/${id}/reject`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Working Hours Rejected",
+          description: "The working hours have been rejected successfully.",
+        });
+        fetchWorkingHours(); // Refresh the list
+      } else {
+        const data = await response.json();
+        toast({
+          title: "Error",
+          description: data.message || "Failed to reject working hours",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to reject working hours",
+        variant: "destructive",
+      });
+    }
   };
 
   const filteredPendingHours = pendingHours.filter(item =>

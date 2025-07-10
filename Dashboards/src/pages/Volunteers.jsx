@@ -52,6 +52,19 @@ const testPDF = () => {
   doc.save("test.pdf");
 };
 
+const downloadVolunteerTemplate = () => {
+  // Create a sample worksheet
+  const ws = XLSX.utils.aoa_to_sheet([
+    ["name", "studentId", "department", "year", "email", "contact"],
+    ["John Doe", "21CE001", "CE", "2024", "john@example.com", "9876543210"]
+  ]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "VolunteersTemplate");
+  const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  const blob = new Blob([wbout], { type: "application/octet-stream" });
+  saveAs(blob, "volunteers_template.xlsx");
+};
+
 const Volunteers = () => {
   const [userRole, setUserRole] = React.useState(null);
   const [userName, setUserName] = React.useState("");
@@ -87,10 +100,18 @@ const Volunteers = () => {
     try {
       const user = JSON.parse(userStr);
       const role = user.role ? user.role.toLowerCase() : "";
-      setUserRole(role);
+      
+      // Map role to abbreviated form
+      let mappedRole = role;
+      if (role === "program coordinator") mappedRole = "pc";
+      else if (role === "program officer") mappedRole = "po";
+      else if (role === "student coordinator") mappedRole = "sc";
+      
+      setUserRole(mappedRole);
       setUserName(user.name);
       setUserEmail(user.email);
       setUserDepartment(user.department);
+
       // For Student Coordinators, always set department to CE
       const departmentForVolunteer = user.role?.toLowerCase() === "sc" ? "CE" : user.department;
       setNewVolunteer((prev) => ({ ...prev, department: departmentForVolunteer }));
@@ -103,6 +124,9 @@ const Volunteers = () => {
   const fetchVolunteers = async () => {
     setLoadingVolunteers(true);
     const token = localStorage.getItem("nssUserToken");
+    
+
+    
     // Add department check for PO
     if (userRole === "po" && (!userDepartment || userDepartment === "undefined")) {
       toast({
@@ -124,9 +148,14 @@ const Volunteers = () => {
       } else if (userRole === "po") {
         // For Program Officers, try their department first, fallback to CE if needed
         endpoint = `http://localhost:5000/api/volunteers/department/${userDepartment}`;
+      } else if (userRole === "pc") {
+        endpoint = "http://localhost:5000/api/volunteers/all";
       } else {
+        // Default to all for unknown roles
         endpoint = "http://localhost:5000/api/volunteers/all";
       }
+
+
 
       const response = await fetch(endpoint, {
         headers: {
@@ -135,15 +164,15 @@ const Volunteers = () => {
       });
       const data = await response.json();
       
+
+      
       if (response.ok) {
         // For Student Coordinators, double-check that we only have CE department volunteers
         let filteredData = data;
         if (userRole === "sc") {
           filteredData = data.filter(volunteer => volunteer.department === "CE");
-        } else if (userRole === "po") {
-          // For Program Officers, filter to their department
-          filteredData = data.filter(volunteer => volunteer.department === userDepartment);
         }
+        // For PO users, the backend should already filter by department, so no additional filtering needed
         setVolunteers(filteredData);
       } else {
         // For Program Officers, if department-specific API fails, try to get all and filter
@@ -419,6 +448,9 @@ const Volunteers = () => {
           </div>
 
           <div className="flex space-x-2">
+            <Button variant="outline" onClick={downloadVolunteerTemplate}>
+              Download Template
+            </Button>
             <Dialog>
               <DialogTrigger asChild>
                 <Button className="bg-nss-primary hover:bg-nss-dark">

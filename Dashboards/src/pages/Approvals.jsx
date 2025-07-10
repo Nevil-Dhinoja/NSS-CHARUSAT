@@ -440,18 +440,20 @@ const Approvals = () => {
     }
     try {
       const user = JSON.parse(userStr);
-      const role = user.role ? user.role.toLowerCase() : "";
-      if (role !== "pc" && role !== "po") {
-        window.location.href = "/dashboard";
-        return;
-      }
-      setUserRole(role);
+      let role = user.role ? user.role.toLowerCase() : "";
+      // Map full role names to abbreviations
+      let mappedRole = role;
+      if (role === "program coordinator") mappedRole = "pc";
+      else if (role === "program officer") mappedRole = "po";
+      else if (role === "student coordinator") mappedRole = "sc";
+      setUserRole(mappedRole);
       setUserName(user.name);
       setUserEmail(user.email);
       setUserDepartment(user.department || "");
-      fetchWorkingHours();
-      if (role === "po" || role === "pc") {
-        fetchReports();
+      // Only allow PC and PO
+      if (mappedRole !== "pc" && mappedRole !== "po") {
+        window.location.href = "/dashboard";
+        return;
       }
     } catch (err) {
       localStorage.clear();

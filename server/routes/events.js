@@ -35,10 +35,11 @@ const upload = multer({
 // Test endpoint to check events (no authentication required)
 router.get('/test', (req, res) => {
   const sql = `
-    SELECT e.*, d.name as department_name, au.name as created_by_name, au.role as creator_role
+    SELECT e.*, d.name as department_name, au.name as created_by_name, r.role_name as creator_role
     FROM events e
     LEFT JOIN departments d ON e.department_id = d.id
     LEFT JOIN assigned_users au ON e.created_by = au.id
+    LEFT JOIN roles r ON au.role_id = r.id
     ORDER BY e.event_date DESC, e.created_at DESC
   `;
   
@@ -61,14 +62,14 @@ router.get('/all', verifyToken, (req, res) => {
   const userDepartment = req.user.department;
   const userId = req.user.id;
   
-  console.log('Events route - User role:', userRole, 'Department:', userDepartment, 'User ID:', userId);
+
   
   let sql = '';
   let params = [];
   
   // For PC users, show all events from all departments
   if (userRole === 'pc' || userRole === 'program coordinator') {
-    console.log('PC user - showing all events');
+
     sql = `
       SELECT e.*, d.name as department_name, au.name as created_by_name
       FROM events e
@@ -79,7 +80,7 @@ router.get('/all', verifyToken, (req, res) => {
   }
   // For PO users, only show events from their department (not PC-created events)
   else if (userRole === 'po' || userRole === 'program officer') {
-    console.log('PO user - showing department events');
+
     // If userDepartment is undefined, get it from database
     if (!userDepartment) {
       const userSql = 'SELECT au.department_id, d.name as department_name FROM assigned_users au LEFT JOIN departments d ON au.department_id = d.id WHERE au.id = ?';
@@ -90,12 +91,12 @@ router.get('/all', verifyToken, (req, res) => {
         }
         
         if (userResults.length === 0 || !userResults[0].department_id) {
-          console.log('User department not found for user:', userId);
+  
           return res.status(400).json({ error: 'User department not found' });
         }
         
         const departmentName = userResults[0].department_name;
-        console.log('Found user department:', departmentName);
+
         
         // Query events for this department (excluding PC-created events)
         const eventsSql = `
@@ -103,7 +104,8 @@ router.get('/all', verifyToken, (req, res) => {
           FROM events e
           LEFT JOIN departments d ON e.department_id = d.id
           LEFT JOIN assigned_users au ON e.created_by = au.id
-          WHERE e.department_id = ? AND (au.role IS NULL OR au.role NOT IN ('pc', 'program coordinator'))
+          LEFT JOIN roles r ON au.role_id = r.id
+          WHERE e.department_id = ? AND (r.role_name IS NULL OR r.role_name NOT IN ('Program Coordinator', 'PC'))
           ORDER BY e.event_date DESC, e.created_at DESC
         `;
         
@@ -112,7 +114,7 @@ router.get('/all', verifyToken, (req, res) => {
             console.error('Database error getting events:', err);
             return res.status(500).json({ error: 'Database error', details: err.message });
           }
-          console.log('Events found for PO:', results.length);
+  
           res.json(results);
         });
       });
@@ -125,26 +127,28 @@ router.get('/all', verifyToken, (req, res) => {
       FROM events e
       LEFT JOIN departments d ON e.department_id = d.id
       LEFT JOIN assigned_users au ON e.created_by = au.id
-      WHERE (d.name = ? OR d.name = ?) AND (au.role IS NULL OR au.role NOT IN ('pc', 'program coordinator'))
+      LEFT JOIN roles r ON au.role_id = r.id
+      WHERE (d.name = ? OR d.name = ?) AND (r.role_name IS NULL OR r.role_name NOT IN ('Program Coordinator', 'PC'))
       ORDER BY e.event_date DESC, e.created_at DESC
     `;
     params = [userDepartment, userDepartment + ' Engineering'];
   }
   // For SC users, show all events (they will be filtered by department in frontend)
   else if (userRole === 'sc' || userRole === 'student coordinator') {
-    console.log('SC user - showing all events (will be filtered by department)');
+
     sql = `
       SELECT e.*, d.name as department_name, au.name as created_by_name
       FROM events e
       LEFT JOIN departments d ON e.department_id = d.id
       LEFT JOIN assigned_users au ON e.created_by = au.id
-      WHERE (au.role IS NULL OR au.role NOT IN ('pc', 'program coordinator'))
+      LEFT JOIN roles r ON au.role_id = r.id
+      WHERE (r.role_name IS NULL OR r.role_name NOT IN ('Program Coordinator', 'PC'))
       ORDER BY e.event_date DESC, e.created_at DESC
     `;
   }
   // Fallback for any other role
   else {
-    console.log('Unknown role - showing all events');
+
     sql = `
       SELECT e.*, d.name as department_name, au.name as created_by_name
       FROM events e
@@ -154,14 +158,14 @@ router.get('/all', verifyToken, (req, res) => {
     `;
   }
   
-  console.log('Executing SQL:', sql, 'with params:', params);
+
   
   db.query(sql, params, (err, results) => {
     if (err) {
       console.error('Database error:', err);
       return res.status(500).json({ error: 'Database error', details: err.message });
     }
-    console.log('Events found:', results.length);
+
     res.json(results);
   });
 });
@@ -181,7 +185,8 @@ router.get('/department/:department', verifyToken, (req, res) => {
     FROM events e
     LEFT JOIN departments d ON e.department_id = d.id
     LEFT JOIN assigned_users au ON e.created_by = au.id
-    WHERE (d.name = ? OR d.name = ?) AND au.role NOT IN ('pc', 'program coordinator')
+    LEFT JOIN roles r ON au.role_id = r.id
+    WHERE (d.name = ? OR d.name = ?) AND (r.role_name IS NULL OR r.role_name NOT IN ('Program Coordinator', 'PC'))
     ORDER BY e.event_date DESC, e.created_at DESC
   `;
   

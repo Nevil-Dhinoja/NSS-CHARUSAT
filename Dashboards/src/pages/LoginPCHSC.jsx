@@ -46,14 +46,16 @@ const LoginPCHSC = () => {
         body: JSON.stringify(loginPayload),
       });
       const data = await res.json();
-      if (data.success) {
+
+      if (res.ok && data.success) {
         const { token, user } = data;
         login(
           {
             id: user.id,
             name: user.name,
             email: user.email || "",
-            role: userType,
+            role: user.role, // Use the actual role from server response
+            department: user.department || null,
           },
           token
         );
@@ -63,11 +65,16 @@ const LoginPCHSC = () => {
         });
         navigate("/dashboard", { replace: true });
       } else {
+  
         toast({
           title: "Login Failed",
           description: data.message || "Invalid credentials.",
           variant: "destructive",
         });
+        // Clear any existing auth data to ensure clean state
+        localStorage.removeItem("nssUserToken");
+        localStorage.removeItem("nssUser");
+        localStorage.removeItem("nssLoginTime");
       }
     } catch (err) {
       console.error("Login Error:", err);

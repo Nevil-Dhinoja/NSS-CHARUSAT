@@ -353,7 +353,7 @@ const Profile = () => {
                     </Label>
                     <Input
                        id="institute"
-                       value={profileData.institute_name || ""}
+                       value={profileData.institute || ""}
                        disabled={true}
                        className="bg-gray-50"
                     />

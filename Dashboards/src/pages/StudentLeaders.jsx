@@ -66,6 +66,13 @@ const StudentLeaders = () => {
   const [isAddingLeader, setIsAddingLeader] = useState(false);
   const [isEditingLeader, setIsEditingLeader] = useState(false);
   const [editingLeader, setEditingLeader] = useState(null);
+  const [isAddingSC, setIsAddingSC] = useState(false);
+  const [newSC, setNewSC] = useState({
+    name: "",
+    email: "",
+    department: ""
+  });
+  const [isSubmittingSC, setIsSubmittingSC] = useState(false);
   const [studentLeaders, setStudentLeaders] = useState([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -78,6 +85,16 @@ const StudentLeaders = () => {
   const [institutes, setInstitutes] = useState([]);
   const [departments, setDepartments] = useState([]);
 
+  const [newLeader, setNewLeader] = useState({
+    name: "",
+    loginId: "",
+    email: "",
+    institute: "",
+    department: "",
+    password: "",
+    position: "Student Coordinator" // Pre-fill position
+  });
+
   React.useEffect(() => {
     const token = localStorage.getItem("nssUserToken");
     const userStr = localStorage.getItem("nssUser");
@@ -88,14 +105,23 @@ const StudentLeaders = () => {
     try {
       const user = JSON.parse(userStr);
       const role = user.role ? user.role.toLowerCase() : "";
-      if (role !== "pc" && role !== "po") {
+      
+      // Map role to abbreviated form
+      let mappedRole = role;
+      if (role === "program coordinator") mappedRole = "pc";
+      else if (role === "program officer") mappedRole = "po";
+      else if (role === "student coordinator") mappedRole = "sc";
+      
+      // Allow both PC and PO roles (including full names and abbreviations)
+      if (mappedRole !== "pc" && mappedRole !== "po") {
         window.location.href = "/dashboard";
         return;
       }
-      setUserRole(role);
+      setUserRole(mappedRole);
       setUserName(user.name);
       setUserEmail(user.email);
       setUserDepartment(user.department || "");
+
     } catch (err) {
       localStorage.clear();
       window.location.href = "/login";
@@ -104,9 +130,9 @@ const StudentLeaders = () => {
 
   // Fetch student leaders when user data is loaded
   React.useEffect(() => {
-    if (userRole && (userRole === "pc" || userRole === "program coordinator" || userDepartment)) {
+    if (userRole && (userRole === "pc" || userRole === "po" || userDepartment)) {
       fetchStudentLeaders();
-      if (userRole === "pc" || userRole === "program coordinator") {
+      if (userRole === "pc") {
         fetchInstitutes();
       }
     }
@@ -128,10 +154,10 @@ const StudentLeaders = () => {
         
         // Filter based on user role and department
         let filteredLeaders;
-        if (userRole === "pc" || userRole === "program coordinator") {
+        if (userRole === "pc") {
           // PC can see all departments (no filtering)
           filteredLeaders = data;
-        } else if (userRole === "po" || userRole === "program officer") {
+        } else if (userRole === "po") {
           // PO can only see their department
           filteredLeaders = data.filter(user => 
             user.department_name === userDepartment || 
@@ -225,16 +251,6 @@ const StudentLeaders = () => {
       fetchDepartments(instituteId);
     }
   };
-
-  const [newLeader, setNewLeader] = useState({
-    name: "",
-    loginId: "",
-    email: "",
-    institute: "",
-    department: "",
-    password: "",
-    position: "Student Coordinator" // Pre-fill position
-  });
 
   // Initialize form with user's department and position when adding
   const initializeForm = () => {
@@ -336,16 +352,13 @@ const StudentLeaders = () => {
     setEditingLeader(leader);
     setNewLeader({
       name: leader.name,
-      loginId: leader.login_id || leader.loginId,
-      email: leader.email,
-      department: leader.department_name || leader.department,
-      position: "Student Coordinator"
+      email: leader.email
     });
     setIsEditingLeader(true);
   };
 
   const handleUpdateLeader = async () => {
-    if (!newLeader.name || !newLeader.loginId || !newLeader.email || !newLeader.department) {
+    if (!newLeader.name || !newLeader.email) {
       toast({
         title: "Missing Information",
         description: "Please fill in all required fields.",
@@ -366,7 +379,7 @@ const StudentLeaders = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/auth/users/student-coordinator/${editingLeader.id}`, {
+      const response = await fetch(`http://localhost:5000/api/auth/student-coordinator/${editingLeader.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -374,9 +387,7 @@ const StudentLeaders = () => {
         },
         body: JSON.stringify({
           name: newLeader.name,
-          login_id: newLeader.loginId,
-          email: newLeader.email,
-          department: newLeader.department
+          email: newLeader.email
         }),
       });
 
@@ -394,19 +405,18 @@ const StudentLeaders = () => {
       const data = await response.json();
       
       if (response.ok) {
-    toast({
-      title: "Student Leader Updated",
-      description: "Student leader information has been updated successfully.",
-    });
-    setIsEditingLeader(false);
-    setEditingLeader(null);
+        toast({
+          title: "Student Leader Updated",
+          description: "Student leader information has been updated successfully.",
+        });
+        setIsEditingLeader(false);
+        setEditingLeader(null);
         initializeForm();
         fetchStudentLeaders(); // Refresh the list
       } else {
-        throw new Error(data.error || "Failed to update student leader");
+        throw new Error(data.message || "Failed to update student leader");
       }
     } catch (error) {
-      console.error("Update error:", error);
       if (error.message.includes("Failed to fetch")) {
         toast({
           title: "Server Error",
@@ -423,6 +433,70 @@ const StudentLeaders = () => {
     }
   };
 
+  const handleAddSC = async () => {
+    if (!newSC.name || !newSC.email || !newSC.department) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmittingSC(true);
+    const token = localStorage.getItem("nssUserToken");
+
+    try {
+      const scData = {
+        ...newSC,
+        department: userDepartment // Use the logged-in PO's department
+      };
+
+      const response = await fetch("http://localhost:5000/api/auth/add-student-coordinator", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(scData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: `Student Coordinator ${newSC.name} has been added successfully. Welcome email has been sent.`,
+        });
+
+        // Reset form
+        setNewSC({
+          name: "",
+          email: "",
+          department: ""
+        });
+        setIsAddingSC(false);
+
+        // Refresh the list
+        fetchStudentLeaders();
+      } else {
+        toast({
+          title: "Error",
+          description: data.message || "Failed to add Student Coordinator",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add Student Coordinator",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmittingSC(false);
+    }
+  };
+
   const handleDeleteLeader = async (leaderId, leaderName) => {
     const token = localStorage.getItem("nssUserToken");
     if (!token) {
@@ -436,7 +510,7 @@ const StudentLeaders = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/auth/users/student-coordinator/${leaderId}`, {
+      const response = await fetch(`http://localhost:5000/api/auth/student-coordinator/${leaderId}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -457,17 +531,15 @@ const StudentLeaders = () => {
       const data = await response.json();
       
       if (response.ok) {
-    toast({
-      title: "Student Leader Removed",
-      description: `${leaderName} has been removed from student leaders.`,
-      variant: "destructive",
-    });
+        toast({
+          title: "Student Leader Removed",
+          description: `${leaderName} has been removed from student leaders.`,
+        });
         fetchStudentLeaders(); // Refresh the list
       } else {
-        throw new Error(data.error || "Failed to delete student leader");
+        throw new Error(data.message || "Failed to delete student leader");
       }
     } catch (error) {
-      console.error("Delete error:", error);
       if (error.message.includes("Failed to fetch")) {
         toast({
           title: "Server Error",
@@ -551,117 +623,90 @@ const StudentLeaders = () => {
               />
             </div>
             {(userRole === "pc" || userRole === "po") && (
-              <Dialog open={isAddingLeader} onOpenChange={setIsAddingLeader}>
-                <DialogTrigger asChild>
-                  <Button 
-                    className="bg-nss-primary hover:bg-nss-dark"
-                    onClick={initializeForm}
-                  >
-                    <PlusCircle className="h-4 w-4 mr-2" />
-                    Add Leader
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl">
-                  <DialogHeader>
-                    <DialogTitle>Add New Student Leader</DialogTitle>
-                    <DialogDescription>
-                      {userRole === "pc" || userRole === "program coordinator"
-                        ? "Add a new student coordinator to the NSS team."
-                        : `Add a new student coordinator to the ${userDepartment} department NSS team.`
-                      }
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Full Name</Label>
-                      <Input
-                        id="name"
-                        value={newLeader.name}
-                        onChange={(e) => setNewLeader({ ...newLeader, name: e.target.value })}
-                        placeholder="Enter full name"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="loginId">Login ID</Label>
-                      <Input
-                        id="loginId"
-                        value={newLeader.loginId}
-                        onChange={(e) => setNewLeader({ ...newLeader, loginId: e.target.value })}
-                        placeholder="Enter login ID"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={newLeader.email}
-                        onChange={(e) => setNewLeader({ ...newLeader, email: e.target.value })}
-                        placeholder="Enter email address"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="institute">Institute</Label>
-                      <Select value={newLeader.institute} onValueChange={(value) => {
-                        setNewLeader({ ...newLeader, institute: value, department: "" });
-                        if (value !== "all") {
-                          fetchDepartments(value);
-                        }
-                      }}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select Institute" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {institutes && institutes.length > 0 && institutes.map(inst => (
-                            <SelectItem key={inst.id} value={inst.id.toString()}>{inst.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="department">Department</Label>
-                      <Select value={newLeader.department} onValueChange={(value) => setNewLeader({ ...newLeader, department: value })}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select Department" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {departments && departments.length > 0 && departments.map(dep => (
-                            <SelectItem key={dep.id} value={dep.id.toString()}>{dep.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="password">Password</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        value={newLeader.password}
-                        onChange={(e) => setNewLeader({ ...newLeader, password: e.target.value })}
-                        placeholder="Enter password"
-                      />
-                    </div>
-                    <div className="md:col-span-2 space-y-2">
-                      <Label htmlFor="position">Position</Label>
-                      <Input
-                        id="position"
-                        value={newLeader.position}
-                        readOnly
-                        disabled
-                        className="bg-gray-100"
-                      />
-                    </div>
-                    <div className="md:col-span-2 flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => setIsAddingLeader(false)}>
-                        Cancel
+              <>
+                <Dialog open={isAddingLeader} onOpenChange={setIsAddingLeader}>
+                  <DialogTrigger asChild>
+                    <Button 
+                      className="bg-nss-primary hover:bg-nss-dark"
+                      onClick={initializeForm}
+                    >
+                      <PlusCircle className="h-4 w-4 mr-2" />
+                      Add Leader
+                    </Button>
+                  </DialogTrigger>
+                </Dialog>
+                {userRole === "po" && (
+                  <Dialog open={isAddingSC} onOpenChange={setIsAddingSC}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        variant="outline"
+                        onClick={() => setNewSC({
+                          name: "",
+                          email: "",
+                          department: ""
+                        })}
+                      >
+                        <User className="h-4 w-4 mr-2" />
+                        Add Student Coordinator
                       </Button>
-                      <Button onClick={handleAddLeader} className="bg-nss-primary hover:bg-nss-dark">
-                        Add Leader
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Add New Student Coordinator</DialogTitle>
+                        <DialogDescription>
+                          Add a new Student Coordinator to your department. They will receive a welcome email with login credentials.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="sc-name">Full Name *</Label>
+                          <Input
+                            id="sc-name"
+                            value={newSC.name}
+                            onChange={(e) => setNewSC({ ...newSC, name: e.target.value })}
+                            placeholder="Enter full name"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="sc-email">Email *</Label>
+                          <Input
+                            id="sc-email"
+                            type="email"
+                            value={newSC.email}
+                            onChange={(e) => setNewSC({ ...newSC, email: e.target.value })}
+                            placeholder="Enter email address"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="sc-department">Department *</Label>
+                          <Input
+                            id="sc-department"
+                            value={userDepartment}
+                            readOnly
+                            disabled
+                            className="bg-gray-100"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="sc-role">Role *</Label>
+                          <Input
+                            id="sc-role"
+                            value="Student Coordinator"
+                            readOnly
+                            disabled
+                            className="bg-gray-100"
+                          />
+                        </div>
+                        <div className="flex justify-end">
+                          <Button onClick={handleAddSC} disabled={isSubmittingSC} className="bg-green-600 hover:bg-green-700">
+                            {isSubmittingSC ? "Adding..." : "Add Student Coordinator"}
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                                )}
+              </>
             )}
           </div>
         </div>
@@ -700,11 +745,115 @@ const StudentLeaders = () => {
           </div>
         )}
 
+        {/* Add Leader Dialog */}
+        <Dialog open={isAddingLeader} onOpenChange={setIsAddingLeader}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Add New Student Leader</DialogTitle>
+              <DialogDescription>
+                {userRole === "pc" || userRole === "program coordinator"
+                  ? "Add a new student coordinator to the NSS team."
+                  : `Add a new student coordinator to the ${userDepartment} department NSS team.`
+                }
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
+                <Input
+                  id="name"
+                  value={newLeader.name}
+                  onChange={(e) => setNewLeader({ ...newLeader, name: e.target.value })}
+                  placeholder="Enter full name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="loginId">Login ID</Label>
+                <Input
+                  id="loginId"
+                  value={newLeader.loginId}
+                  onChange={(e) => setNewLeader({ ...newLeader, loginId: e.target.value })}
+                  placeholder="Enter login ID"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={newLeader.email}
+                  onChange={(e) => setNewLeader({ ...newLeader, email: e.target.value })}
+                  placeholder="Enter email address"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="institute">Institute</Label>
+                <Select value={newLeader.institute} onValueChange={(value) => {
+                  setNewLeader({ ...newLeader, institute: value, department: "" });
+                  if (value !== "all") {
+                    fetchDepartments(value);
+                  }
+                }}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Institute" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {institutes && institutes.length > 0 && institutes.map(inst => (
+                      <SelectItem key={inst.id} value={inst.id.toString()}>{inst.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="department">Department</Label>
+                <Select value={newLeader.department} onValueChange={(value) => setNewLeader({ ...newLeader, department: value })}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments && departments.length > 0 && departments.map(dep => (
+                      <SelectItem key={dep.id} value={dep.id.toString()}>{dep.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={newLeader.password}
+                  onChange={(e) => setNewLeader({ ...newLeader, password: e.target.value })}
+                  placeholder="Enter password"
+                />
+              </div>
+              <div className="md:col-span-2 space-y-2">
+                <Label htmlFor="position">Position</Label>
+                <Input
+                  id="position"
+                  value={newLeader.position}
+                  readOnly
+                  disabled
+                  className="bg-gray-100"
+                />
+              </div>
+              <div className="md:col-span-2 flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setIsAddingLeader(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleAddLeader} className="bg-nss-primary hover:bg-nss-dark">
+                  Add Leader
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Edit Dialog */}
         <Dialog open={isEditingLeader} onOpenChange={setIsEditingLeader}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Edit Student Leader</DialogTitle>
+              <DialogTitle>Edit Student Coordinator</DialogTitle>
               <DialogDescription>
                 Update student coordinator information.
               </DialogDescription>
@@ -717,15 +866,6 @@ const StudentLeaders = () => {
                   value={newLeader.name}
                   onChange={(e) => setNewLeader({ ...newLeader, name: e.target.value })}
                   placeholder="Enter full name"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-loginId">Login ID</Label>
-                <Input
-                  id="edit-loginId"
-                  value={newLeader.loginId}
-                  onChange={(e) => setNewLeader({ ...newLeader, loginId: e.target.value })}
-                  placeholder="Enter login ID"
                 />
               </div>
               <div className="space-y-2">
@@ -742,37 +882,17 @@ const StudentLeaders = () => {
                 <Label htmlFor="edit-department">Department</Label>
                 <Input
                   id="edit-department"
-                  value={userRole === "pc" || userRole === "program coordinator" ? "" : newLeader.department}
+                  value={userDepartment}
                   readOnly
                   disabled
                   className="bg-gray-100"
-                  placeholder={userRole === "pc" || userRole === "program coordinator" ? "Select department below" : ""}
                 />
               </div>
-              {(userRole === "pc" || userRole === "program coordinator") && (
-              <div className="space-y-2">
-                  <Label htmlFor="edit-department-select">Select Department</Label>
-                <select
-                    id="edit-department-select"
-                  value={newLeader.department}
-                  onChange={(e) => setNewLeader({ ...newLeader, department: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  <option value="">Select Department</option>
-                    <option value="CE">Computer Engineering</option>
-                    <option value="ME">Mechanical Engineering</option>
-                    <option value="EE">Electrical Engineering</option>
-                    <option value="IT">Information Technology</option>
-                    <option value="CSE">Computer Science Engineering</option>
-                </select>
-              </div>
-              )}
-              
               <div className="md:col-span-2 space-y-2">
                 <Label htmlFor="edit-position">Position</Label>
                 <Input
                   id="edit-position"
-                  value={newLeader.position}
+                  value="Student Coordinator"
                   readOnly
                   disabled
                   className="bg-gray-100"
@@ -783,7 +903,7 @@ const StudentLeaders = () => {
                   Cancel
                 </Button>
                 <Button onClick={handleUpdateLeader} className="bg-nss-primary hover:bg-nss-dark">
-                  Update Leader
+                  Update Coordinator
                 </Button>
               </div>
             </div>
@@ -860,14 +980,16 @@ const StudentLeaders = () => {
                         <TableCell>{getPositionBadge("Student Coordinator")}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-2 justify-end">
-                          <Button
-                            onClick={() => handleEditLeader(leader)}
-                            variant="outline"
-                            size="sm"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          {(userRole === "pc" || userRole === "po") && (
+                          {(userRole === "pc" || userRole === "program coordinator" || userRole === "po" || userRole === "program officer") && (
+                            <Button
+                              onClick={() => handleEditLeader(leader)}
+                              variant="outline"
+                              size="sm"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {(userRole === "pc" || userRole === "program coordinator" || userRole === "po" || userRole === "program officer") && (
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                             <Button
@@ -880,7 +1002,7 @@ const StudentLeaders = () => {
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete Student Leader</AlertDialogTitle>
+                                  <AlertDialogTitle>Delete Student Coordinator</AlertDialogTitle>
                                   <AlertDialogDescription>
                                     Are you sure you want to delete <strong>{leader.name}</strong>? This action cannot be undone and will remove their access to the system.
                                   </AlertDialogDescription>

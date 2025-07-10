@@ -88,7 +88,8 @@ const Login = () => {
 
       const data = await res.json();
 
-      if (data.success) {
+
+      if (res.ok && data.success) {
         const { token, user } = data;
 
         login(
@@ -96,8 +97,8 @@ const Login = () => {
             id: user.id,
             name: user.name,
             email: user.email || "",
-            role: userType,
-            department: department || null,
+            role: user.role, // Use the actual role from server response
+            department: user.department || department || null, // Use server department first, then selected department
             institute,
           },
           token
@@ -110,11 +111,16 @@ const Login = () => {
 
         navigate("/dashboard", { replace: true });
       } else {
+  
         toast({
           title: "Login Failed",
           description: data.message || "Invalid credentials.",
           variant: "destructive",
         });
+        // Clear any existing auth data to ensure clean state
+        localStorage.removeItem("nssUserToken");
+        localStorage.removeItem("nssUser");
+        localStorage.removeItem("nssLoginTime");
       }
     } catch (err) {
       console.error("Login Error:", err);

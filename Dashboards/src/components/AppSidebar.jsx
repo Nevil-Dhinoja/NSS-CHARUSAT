@@ -28,6 +28,8 @@ import {
 } from "@/components/ui/sidebar";
 
 export default function AppSidebar({ userRole, userName, userEmail }) {
+
+  
   // Define menu items based on user role
   const getMenuItems = () => {
     const commonItems = [
@@ -48,7 +50,15 @@ export default function AppSidebar({ userRole, userName, userEmail }) {
       },
     ];
 
-    if (userRole === "pc") {
+    // Map role to determine which menu items to show
+    let mappedRole = userRole;
+    if (userRole === "program coordinator") mappedRole = "pc";
+    else if (userRole === "program officer") mappedRole = "po";
+    else if (userRole === "student coordinator") mappedRole = "sc";
+    
+
+
+    if (mappedRole === "pc") {
       return [
         ...commonItems.slice(0, 1), // Dashboard
         {
@@ -78,7 +88,7 @@ export default function AppSidebar({ userRole, userName, userEmail }) {
         },
         ...commonItems.slice(1), // Profile, Settings
       ];
-    } else if (userRole === "po") {
+    } else if (mappedRole === "po") {
       return [
         ...commonItems.slice(0, 1), // Dashboard
         {
@@ -86,6 +96,7 @@ export default function AppSidebar({ userRole, userName, userEmail }) {
           url: "/student-leaders",
           icon: Users,
         },
+
         {
           title: "Volunteers",
           url: "/volunteers",
@@ -103,7 +114,7 @@ export default function AppSidebar({ userRole, userName, userEmail }) {
         },
         ...commonItems.slice(1), // Profile, Settings
       ];
-    } else if (userRole === "sc") {
+    } else if (mappedRole === "sc") {
       return [
         ...commonItems.slice(0, 1), // Dashboard
         {

@@ -21,6 +21,7 @@ import Profile from "./pages/Profile.jsx";
 import Settings from "./pages/Settings.jsx";
 import LoginPCHSC from "./pages/LoginPCHSC.jsx";
 
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -44,6 +45,7 @@ const App = () => (
           <Route path="/profile" element={<Profile />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/login-pc-hsc" element={<LoginPCHSC />} />
+
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

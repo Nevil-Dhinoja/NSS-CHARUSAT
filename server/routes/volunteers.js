@@ -124,11 +124,58 @@ router.get('/department/:department', verifyToken, (req, res) => {
     return res.status(403).json({ error: 'Access denied. Student Coordinators can only view CE department volunteers.' });
   }
 
-  // For Program Officers, allow access to their department or any department if they have permission
+  // For Program Officers, restrict to their department only
   if (userRole === 'po' || userRole === 'program officer') {
-    // Allow PO to access any department for now (can be restricted later if needed)
+    // Get the user's department from the database
+    const userSql = 'SELECT department_id FROM assigned_users WHERE id = ?';
+    db.query(userSql, [req.user.id], (err, userResults) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error', details: err });
+      }
+      
+      if (userResults.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      const userDepartmentId = userResults[0].department_id;
+      
+      // Get the department name for the user
+      const deptSql = 'SELECT name FROM departments WHERE id = ?';
+      db.query(deptSql, [userDepartmentId], (err, deptResults) => {
+        if (err) {
+          return res.status(500).json({ error: 'Database error', details: err });
+        }
+        
+        if (deptResults.length === 0) {
+          return res.status(404).json({ error: 'Department not found' });
+        }
+        
+        const userDepartment = deptResults[0].name;
+
+        
+        // Check if the requested department matches the user's department
+        if (department !== userDepartment && department !== userDepartment + ' Engineering') {
+          return res.status(403).json({ 
+            error: 'Access denied. You can only view volunteers from your department.',
+            userDepartment: userDepartment,
+            requestedDepartment: department
+          });
+        }
+        
+        // If department matches, proceed with the query
+        const sql = 'SELECT * FROM volunteers WHERE department = ? ORDER BY joined_on DESC';
+        db.query(sql, [department], (err, results) => {
+          if (err) {
+            return res.status(500).json({ error: 'Database error', details: err });
+          }
+          res.json(results);
+        });
+      });
+    });
+    return;
   }
 
+  // For PC and other roles, allow access to any department
   const sql = 'SELECT * FROM volunteers WHERE department = ? ORDER BY joined_on DESC';
   
   db.query(sql, [department], (err, results) => {

@@ -24,16 +24,18 @@ useEffect(() => {
   try {
     const user = JSON.parse(userStr);
 
-    const roleMap = {
-      "Program Officer": "PO",
-      "Program Coordinator": "PC",
-      "Student Coordinator": "SC",
-      "PO": "po",
-      "PC": "pc",
-      "SC": "sc",
+    const roleMapping = {
+      "program officer": "po",
+      "program coordinator": "pc",
+      "student coordinator": "sc",
+      "head student coordinator": "hsc",
+      "po": "po",
+      "pc": "pc",
+      "sc": "sc",
+      "hsc": "hsc",
     };
 
-    const mappedRole = roleMap[user.role] || "unknown";
+    const mappedRole = roleMapping[user.role?.toLowerCase()] || user.role;
 
     setUserRole(mappedRole);
     setUserName(user.name || "");
@@ -51,12 +53,20 @@ useEffect(() => {
       case "pc": return <ProgramCoordinatorDashboard />;
       case "po": return <ProgramOfficerDashboard />;
       case "sc": return <StudentCoordinatorDashboard />;
+      case "hsc": return <StudentCoordinatorDashboard />; // HSC gets same dashboard as SC
       default: return <div className="text-center text-red-600">Access Denied</div>;
     }
   };
 
   if (!userRole) {
     return <div className="min-h-screen flex items-center justify-center"><p>Loading...</p></div>;
+  }
+
+  // Additional security check - if role is unknown, redirect to login
+  if (userRole === "unknown") {
+    localStorage.clear();
+    window.location.href = "/login";
+    return <div className="min-h-screen flex items-center justify-center"><p>Redirecting to login...</p></div>;
   }
 
   return (

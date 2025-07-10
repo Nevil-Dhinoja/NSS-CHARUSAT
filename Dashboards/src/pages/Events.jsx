@@ -136,7 +136,7 @@ const Events = () => {
         ? `http://localhost:5000/api/events/department/${encodeURIComponent(userDepartment || '')}`
         : "http://localhost:5000/api/events/all";
 
-      console.log('Fetching events from:', endpoint, 'for role:', userRole, 'department:', userDepartment);
+
 
       const response = await fetch(endpoint, {
         headers: {
@@ -146,7 +146,7 @@ const Events = () => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('Events fetched:', data);
+
         setEvents(data);
       } else {
         const errorData = await response.json().catch(() => ({}));
@@ -561,9 +561,7 @@ Date: _________________
     event.department_name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  console.log('Events state:', events);
-  console.log('Filtered events:', filteredEvents);
-  console.log('Search query:', searchQuery);
+  
 
   // Pagination logic
   const deptIndexOfLast = deptCurrentPage * deptItemsPerPage;
@@ -571,8 +569,7 @@ Date: _________________
   const deptCurrentItems = filteredEvents.slice(deptIndexOfFirst, deptIndexOfLast);
   const deptTotalPages = Math.ceil(filteredEvents.length / deptItemsPerPage);
 
-  console.log('Current page items:', deptCurrentItems);
-  console.log('Total pages:', deptTotalPages);
+  
 
   // Reset page when search changes
   React.useEffect(() => {
@@ -614,7 +611,7 @@ Date: _________________
 
       if (response.ok) {
         const data = await response.json();
-        console.log('Test endpoint response:', data);
+
         toast({
           title: "Test Results",
           description: `Found ${data.total_events} events in database`,
