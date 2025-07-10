@@ -48,7 +48,6 @@ import {
   User,
   Search,
   Filter,
-  PlusCircle,
   Edit,
   Trash2,
   MapPin,
@@ -63,7 +62,7 @@ const StudentLeaders = () => {
   const [userEmail, setUserEmail] = React.useState("");
   const [userDepartment, setUserDepartment] = React.useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [isAddingLeader, setIsAddingLeader] = useState(false);
+
   const [isEditingLeader, setIsEditingLeader] = useState(false);
   const [editingLeader, setEditingLeader] = useState(null);
   const [isAddingSC, setIsAddingSC] = useState(false);
@@ -268,85 +267,7 @@ const StudentLeaders = () => {
     });
   };
 
-  const handleAddLeader = async () => {
-    if (!newLeader.name || !newLeader.loginId || !newLeader.email || !newLeader.institute || !newLeader.department || !newLeader.password) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields.",
-        variant: "destructive"
-      });
-      return;
-    }
 
-    const token = localStorage.getItem("nssUserToken");
-    if (!token) {
-      toast({
-        title: "Authentication Error",
-        description: "No token found. Please login again.",
-        variant: "destructive"
-      });
-      window.location.href = "/login";
-      return;
-    }
-
-    try {
-      const response = await fetch("http://localhost:5000/api/auth/users/student-coordinator", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: newLeader.name,
-          login_id: newLeader.loginId,
-          email: newLeader.email,
-          institute_id: newLeader.institute,
-          department_id: newLeader.department,
-          password: newLeader.password
-        }),
-      });
-
-      if (response.status === 401) {
-        toast({
-          title: "Token Expired",
-          description: "Your session has expired. Please login again.",
-          variant: "destructive"
-        });
-        localStorage.clear();
-        window.location.href = "/login";
-        return;
-      }
-
-      const data = await response.json();
-      
-      if (response.ok) {
-        toast({
-          title: "Student Leader Added",
-          description: "New student leader has been added successfully.",
-        });
-        setIsAddingLeader(false);
-        initializeForm();
-        fetchStudentLeaders(); // Refresh the list
-      } else {
-        throw new Error(data.error || "Failed to add student leader");
-      }
-    } catch (error) {
-      console.error("Add error:", error);
-      if (error.message.includes("Failed to fetch")) {
-        toast({
-          title: "Server Error",
-          description: "Cannot connect to server. Please make sure the backend is running.",
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: error.message,
-          variant: "destructive"
-        });
-      }
-    }
-  };
 
   const handleEditLeader = (leader) => {
     setEditingLeader(leader);
@@ -624,17 +545,6 @@ const StudentLeaders = () => {
             </div>
             {(userRole === "pc" || userRole === "po") && (
               <>
-                <Dialog open={isAddingLeader} onOpenChange={setIsAddingLeader}>
-                  <DialogTrigger asChild>
-                    <Button 
-                      className="bg-nss-primary hover:bg-nss-dark"
-                      onClick={initializeForm}
-                    >
-                      <PlusCircle className="h-4 w-4 mr-2" />
-                      Add Leader
-                    </Button>
-                  </DialogTrigger>
-                </Dialog>
                 {userRole === "po" && (
                   <Dialog open={isAddingSC} onOpenChange={setIsAddingSC}>
                     <DialogTrigger asChild>
@@ -745,109 +655,7 @@ const StudentLeaders = () => {
           </div>
         )}
 
-        {/* Add Leader Dialog */}
-        <Dialog open={isAddingLeader} onOpenChange={setIsAddingLeader}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Add New Student Leader</DialogTitle>
-              <DialogDescription>
-                {userRole === "pc" || userRole === "program coordinator"
-                  ? "Add a new student coordinator to the NSS team."
-                  : `Add a new student coordinator to the ${userDepartment} department NSS team.`
-                }
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  value={newLeader.name}
-                  onChange={(e) => setNewLeader({ ...newLeader, name: e.target.value })}
-                  placeholder="Enter full name"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="loginId">Login ID</Label>
-                <Input
-                  id="loginId"
-                  value={newLeader.loginId}
-                  onChange={(e) => setNewLeader({ ...newLeader, loginId: e.target.value })}
-                  placeholder="Enter login ID"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={newLeader.email}
-                  onChange={(e) => setNewLeader({ ...newLeader, email: e.target.value })}
-                  placeholder="Enter email address"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="institute">Institute</Label>
-                <Select value={newLeader.institute} onValueChange={(value) => {
-                  setNewLeader({ ...newLeader, institute: value, department: "" });
-                  if (value !== "all") {
-                    fetchDepartments(value);
-                  }
-                }}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select Institute" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {institutes && institutes.length > 0 && institutes.map(inst => (
-                      <SelectItem key={inst.id} value={inst.id.toString()}>{inst.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="department">Department</Label>
-                <Select value={newLeader.department} onValueChange={(value) => setNewLeader({ ...newLeader, department: value })}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select Department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {departments && departments.length > 0 && departments.map(dep => (
-                      <SelectItem key={dep.id} value={dep.id.toString()}>{dep.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={newLeader.password}
-                  onChange={(e) => setNewLeader({ ...newLeader, password: e.target.value })}
-                  placeholder="Enter password"
-                />
-              </div>
-              <div className="md:col-span-2 space-y-2">
-                <Label htmlFor="position">Position</Label>
-                <Input
-                  id="position"
-                  value={newLeader.position}
-                  readOnly
-                  disabled
-                  className="bg-gray-100"
-                />
-              </div>
-              <div className="md:col-span-2 flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setIsAddingLeader(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleAddLeader} className="bg-nss-primary hover:bg-nss-dark">
-                  Add Leader
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+
 
         {/* Edit Dialog */}
         <Dialog open={isEditingLeader} onOpenChange={setIsEditingLeader}>
@@ -874,8 +682,10 @@ const StudentLeaders = () => {
                   id="edit-email"
                   type="email"
                   value={newLeader.email}
-                  onChange={(e) => setNewLeader({ ...newLeader, email: e.target.value })}
-                  placeholder="Enter email address"
+                  readOnly
+                  disabled
+                  className="bg-gray-100"
+                  placeholder="Email cannot be changed"
                 />
               </div>
               <div className="space-y-2">
@@ -1035,10 +845,7 @@ const StudentLeaders = () => {
             </div>
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between space-x-2 py-4">
-                <div className="text-sm text-muted-foreground">
-                  Showing {filteredLeaders.length > 0 ? indexOfFirstItem + 1 : 0} to {Math.min(indexOfLastItem, filteredLeaders.length)} of {filteredLeaders.length} results
-                </div>
+              <div className="flex justify-end space-x-2 py-4">
                 <div className="flex items-center space-x-2">
                   <Button
                     variant="outline"

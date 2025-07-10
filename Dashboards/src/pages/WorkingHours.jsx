@@ -140,7 +140,7 @@ const WorkingHours = () => {
     try {
       const user = JSON.parse(userStr);
       const role = user.role ? user.role.toLowerCase() : "";
-      if (role !== "sc") {
+      if (role !== "sc" && role !== "student coordinator") {
         window.location.href = "/dashboard";
         return;
       }

@@ -65,8 +65,8 @@ router.post('/login', async (req, res) => {
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '24h' }
     );
-
-    res.json({
+    
+    res.json({ 
       success: true,
       message: 'Login successful',
       token,
@@ -102,7 +102,7 @@ router.post('/add-student-coordinator', verifyToken, async (req, res) => {
       message: 'All fields are required: name, email, department' 
     });
   }
-
+  
   try {
     // Check if email already exists
     const checkEmailSql = 'SELECT id FROM assigned_users WHERE email = ?';
@@ -162,7 +162,7 @@ router.post('/add-student-coordinator', verifyToken, async (req, res) => {
             INSERT INTO assigned_users (name, email, login_id, password_hash, department_id, role_id)
             VALUES (?, ?, ?, ?, ?, ?)
           `;
-
+          
           db.query(insertSql, [name, email, loginId, hashedPassword, departmentId, roleId], async (err, result) => {
             if (err) {
               return res.status(500).json({ success: false, message: 'Database error' });
@@ -204,8 +204,8 @@ router.post('/add-student-coordinator', verifyToken, async (req, res) => {
             } catch (notificationError) {
               // Continue without failing the entire operation
             }
-
-            res.status(201).json({
+            
+            res.status(201).json({ 
               success: true,
               message: 'Student Coordinator added successfully',
               sc: {
@@ -354,11 +354,11 @@ router.delete('/student-coordinator/:id', verifyToken, async (req, res) => {
       `;
 
       db.query(deleteSql, [id], async (err, result) => {
-        if (err) {
+            if (err) {
           return res.status(500).json({ success: false, message: 'Database error' });
-        }
-
-        if (result.affectedRows === 0) {
+            }
+            
+            if (result.affectedRows === 0) {
           return res.status(404).json({ 
             success: false, 
             message: 'Student Coordinator not found or access denied' 
@@ -379,11 +379,6 @@ router.delete('/student-coordinator/:id', verifyToken, async (req, res) => {
       error: error.message 
     });
   }
-});
-
-// Test route to debug routing
-router.get('/test-route', (req, res) => {
-  res.json({ message: 'Test route working' });
 });
 
 // Get all Student Coordinators (for PO to see their SCs)
@@ -407,13 +402,13 @@ router.get('/student-coordinators', verifyToken, (req, res) => {
     WHERE r.role_name = 'Student Coordinator' AND d.name = ?
     ORDER BY au.created_at DESC
   `;
-
+  
   db.query(sql, [req.user.department], (err, result) => {
     if (err) {
       return res.status(500).json({ success: false, message: 'Database error' });
-    }
-
-    res.json({
+      }
+      
+      res.json({ 
       success: true,
       studentCoordinators: result
     });
@@ -451,7 +446,7 @@ router.get('/institutes', verifyToken, (req, res) => {
     if (err) {
       return res.status(500).json({ success: false, message: 'Database error' });
     }
-
+    
     res.json(result);
   });
 });
@@ -466,7 +461,7 @@ router.get('/departments/:instituteId', verifyToken, (req, res) => {
     if (err) {
       return res.status(500).json({ success: false, message: 'Database error' });
     }
-
+    
     res.json(result);
   });
 });
@@ -485,7 +480,7 @@ router.get('/profile', verifyToken, (req, res) => {
   `;
 
   db.query(sql, [userId], (err, result) => {
-    if (err) {
+      if (err) {
       return res.status(500).json({ success: false, message: 'Database error' });
     }
 
@@ -504,9 +499,9 @@ router.get('/profile', verifyToken, (req, res) => {
       department_id: user.department_id,
       department_name: user.department_name,
       institute: user.institute_name
-    });
-  });
-});
+            });
+          });
+        });
 
 // Update user profile
 router.put('/profile', verifyToken, (req, res) => {
@@ -524,7 +519,7 @@ router.put('/profile', verifyToken, (req, res) => {
   // Check if email already exists for other users
   const checkEmailSql = 'SELECT id FROM assigned_users WHERE email = ? AND id != ?';
   db.query(checkEmailSql, [email, userId], (err, emailResult) => {
-    if (err) {
+      if (err) {
       return res.status(500).json({ success: false, message: 'Database error' });
     }
 
@@ -537,24 +532,24 @@ router.put('/profile', verifyToken, (req, res) => {
 
     // Update user profile
     const updateSql = `
-      UPDATE assigned_users 
+          UPDATE assigned_users 
       SET name = ?, email = ?, login_id = ?
-      WHERE id = ?
-    `;
+          WHERE id = ?
+        `;
 
     db.query(updateSql, [name, email, login_id, userId], (err, result) => {
-      if (err) {
+          if (err) {
         return res.status(500).json({ success: false, message: 'Database error' });
-      }
-
-      if (result.affectedRows === 0) {
+          }
+          
+          if (result.affectedRows === 0) {
         return res.status(404).json({ 
           success: false, 
           message: 'User not found' 
         });
       }
-
-      res.json({
+      
+      res.json({ 
         success: true,
         message: 'Profile updated successfully',
         user: {

@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 
 exports.loginUser = (req, res) => {
     const { login_id, password, role } = req.body;
-  
+
 
     const sql = `SELECT assigned_users.*, roles.role_name, departments.name as department_name
                  FROM assigned_users 

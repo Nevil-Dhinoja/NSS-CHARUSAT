@@ -32,6 +32,29 @@ const upload = multer({
   }
 });
 
+// Function to update event statuses for past events
+const updateEventStatuses = (events) => {
+  const currentDate = new Date();
+  
+  events.forEach(event => {
+    const eventDate = new Date(event.event_date);
+    const shouldBeCompleted = eventDate < currentDate;
+    
+    if (shouldBeCompleted && event.status === 'upcoming') {
+      // Update the status in database
+      const updateSql = 'UPDATE events SET status = ? WHERE id = ?';
+      db.query(updateSql, ['completed', event.id], (err, result) => {
+        if (err) {
+          console.error('Error updating event status:', err);
+        } else {
+          // Update the status in the results array
+          event.status = 'completed';
+        }
+      });
+    }
+  });
+};
+
 // Test endpoint to check events (no authentication required)
 router.get('/test', (req, res) => {
   const sql = `
@@ -52,6 +75,34 @@ router.get('/test', (req, res) => {
       total_events: results.length,
       events: results,
       message: 'Test data from events table'
+    });
+  });
+});
+
+// Update all event statuses (admin endpoint)
+router.post('/update-statuses', verifyToken, (req, res) => {
+  const userRole = req.user.role?.toLowerCase();
+  
+  // Only allow PC users to update all event statuses
+  if (userRole !== 'pc' && userRole !== 'program coordinator') {
+    return res.status(403).json({ error: 'Access denied. Only Program Coordinators can update event statuses.' });
+  }
+  
+  const currentDate = new Date();
+  const updateSql = `
+    UPDATE events 
+    SET status = 'completed' 
+    WHERE event_date < ? AND status = 'upcoming'
+  `;
+  
+  db.query(updateSql, [currentDate], (err, result) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error', details: err.message });
+    }
+    
+    res.json({ 
+      message: 'Event statuses updated successfully',
+      updatedCount: result.affectedRows
     });
   });
 });
@@ -115,6 +166,8 @@ router.get('/all', verifyToken, (req, res) => {
             return res.status(500).json({ error: 'Database error', details: err.message });
           }
   
+          // Update status for past events
+          updateEventStatuses(results);
           res.json(results);
         });
       });
@@ -166,6 +219,8 @@ router.get('/all', verifyToken, (req, res) => {
       return res.status(500).json({ error: 'Database error', details: err.message });
     }
 
+    // Update status for past events
+    updateEventStatuses(results);
     res.json(results);
   });
 });
@@ -196,6 +251,9 @@ router.get('/department/:department', verifyToken, (req, res) => {
     if (err) {
       return res.status(500).json({ error: 'Database error', details: err.message });
     }
+    
+    // Update status for past events
+    updateEventStatuses(results);
     res.json(results);
   });
 });
@@ -444,16 +502,21 @@ router.post('/submit-report', verifyToken, upload.single('report_file'), (req, r
         return res.status(403).json({ error: 'Access denied. You can only submit reports for events in your department.' });
       }
       
-      // Check if user already submitted a report for this event
-      const checkSql = 'SELECT id FROM event_reports WHERE event_id = ? AND submitted_by_id = ?';
-      db.query(checkSql, [event_id, submittedById], (err, reportResults) => {
+      // Check if any report has already been submitted for this event from the same department
+      const checkSql = `
+        SELECT er.id 
+        FROM event_reports er
+        LEFT JOIN events e ON er.event_id = e.id
+        WHERE er.event_id = ? AND e.department_id = ?
+      `;
+      db.query(checkSql, [event_id, event.department_id], (err, reportResults) => {
         if (err) {
           return res.status(500).json({ error: 'Database error', details: err.message });
         }
         
         if (reportResults.length > 0) {
           return res.status(400).json({ 
-            error: 'You have already submitted a report for this event. Please delete the existing report first before uploading a new one.' 
+            error: 'A report has already been submitted for this event by another Student Coordinator in your department.' 
           });
         }
         
@@ -530,17 +593,17 @@ router.get('/reports', verifyToken, (req, res) => {
       `;
       params = [];
     } else {
-      // SC sees only their own submitted reports
+      // SC sees all reports from their department (shared across all SCs in the department)
       reportsSql = `
         SELECT er.*, e.event_name, e.event_date, d.name as department_name, au.name as submitted_by_name
         FROM event_reports er
         LEFT JOIN events e ON er.event_id = e.id
         LEFT JOIN departments d ON e.department_id = d.id
         LEFT JOIN assigned_users au ON er.submitted_by_id = au.id
-        WHERE er.submitted_by_id = ?
+        WHERE e.department_id = ?
         ORDER BY er.created_at DESC
       `;
-      params = [userId];
+      params = [departmentId];
     }
     
     db.query(reportsSql, params, (err, results) => {

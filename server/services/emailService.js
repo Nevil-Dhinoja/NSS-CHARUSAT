@@ -69,7 +69,7 @@ const sendWelcomeEmail = async (scEmail, scName, poName, poEmail, department, de
             </p>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/login" 
+              <a href="${process.env.FRONTEND_URL || 'http://localhost:8080'}/login" 
                  style="background-color: #1e40af; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
                 Login to Dashboard
               </a>
@@ -129,7 +129,7 @@ const sendNotificationToPO = async (poEmail, poName, scName, scEmail, department
             </p>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard" 
+              <a href="${process.env.FRONTEND_URL || 'http://localhost:8080'}/dashboard" 
                  style="background-color: #059669; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
                 Go to Dashboard
               </a>

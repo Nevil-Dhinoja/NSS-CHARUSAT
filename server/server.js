@@ -20,13 +20,13 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const authRoutes = require('./routes/auth');
+const authRoutes = require('./routes/auth.js');
 app.use('/api/auth', authRoutes);
-const volunteerRoutes = require('./routes/volunteers');
+const volunteerRoutes = require('./routes/volunteers.js');
 app.use('/api/volunteers', volunteerRoutes); 
-const workingHoursRoutes = require('./routes/workingHours');
+const workingHoursRoutes = require('./routes/workingHours.js');
 app.use('/api/working-hours', workingHoursRoutes);
-const eventsRoutes = require('./routes/events');
+const eventsRoutes = require('./routes/events.js');
 app.use('/api/events', eventsRoutes);
 
 

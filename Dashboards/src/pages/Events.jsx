@@ -456,6 +456,9 @@ Date: _________________
           report_file: null,
           submitted_by: ""
         });
+        
+        // Immediately update the submittedEventIds to prevent re-submission
+        setSubmittedEventIds(prev => [...prev, reportForm.event_id]);
       } else {
         throw new Error(data.error || "Failed to submit report");
       }
@@ -539,7 +542,7 @@ Date: _________________
   // After fetching events and reports, cross-reference for SC
   React.useEffect(() => {
     if ((userRole === 'sc' || userRole === 'student coordinator') && events.length > 0) {
-      // Fetch reports for this SC
+      // Fetch all reports for this SC's department (shared status)
       const fetchReports = async () => {
         const token = localStorage.getItem("nssUserToken");
         const res = await fetch("http://localhost:5000/api/events/reports", {
@@ -547,7 +550,8 @@ Date: _________________
         });
         if (res.ok) {
           const data = await res.json();
-          setSubmittedEventIds(data.map(r => r.event_id));
+          // Map to event_ids for which a report exists in the department
+          setSubmittedEventIds([...new Set(data.map(r => r.event_id))]);
         }
       };
       fetchReports();
@@ -635,6 +639,49 @@ Date: _________________
     }
   };
 
+  const updateEventStatuses = async () => {
+    const token = localStorage.getItem("nssUserToken");
+    if (!token) {
+      toast({
+        title: "Authentication Error",
+        description: "No token found. Please login again.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:5000/api/events/update-statuses', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        toast({
+          title: "Status Updated",
+          description: `${data.updatedCount} events have been marked as completed.`,
+        });
+        fetchEvents(); // Refresh the events list
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Error",
+          description: errorData.error || "Failed to update event statuses",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update event statuses: " + error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
   if (!userRole || !userName) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -671,19 +718,30 @@ Date: _________________
                 Download Template
               </Button>
             )}
+            {/* Only show Update Statuses button for PC users */}
+            {(userRole === 'pc' || userRole === 'program coordinator') && (
+              <Button 
+                variant="outline"
+                onClick={updateEventStatuses}
+                className="border-orange-500 text-orange-500 hover:bg-orange-50"
+              >
+                <Clock className="h-4 w-4 mr-2" />
+                Update Statuses
+              </Button>
+            )}
             {/* Only show Add Event button for PO and PC users */}
             {(userRole === 'po' || userRole === 'pc' || userRole === 'program officer' || userRole === 'program coordinator') && (
               <Dialog open={isAddingEvent} onOpenChange={setIsAddingEvent}>
-            <DialogTrigger asChild>
+                <DialogTrigger asChild>
                   <Button 
                     className="bg-nss-primary hover:bg-nss-dark"
                     onClick={initializeForm}
                   >
                     <PlusCircle className="h-4 w-4 mr-2" />
                     Add Event
-              </Button>
-            </DialogTrigger>
-                <DialogContent className="max-w-2xl">
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-lg">
               <DialogHeader>
                 <DialogTitle>Add New Event</DialogTitle>
                   <DialogDescription>
@@ -693,7 +751,7 @@ Date: _________________
                     }
                   </DialogDescription>
               </DialogHeader>
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 py-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
                 <div className="space-y-2">
                     <Label htmlFor="event_name">Event Name</Label>
                     <Input
@@ -968,26 +1026,16 @@ Date: _________________
                               <>
                                 {submittedEventIds.includes(event.id) ? (
                                   <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-800 mr-2">Report Already Submitted</span>
-                                ) : null}
-                                <Button
-                                  onClick={() => {
-                                    if (submittedEventIds.includes(event.id)) {
-                                      toast({
-                                        title: "Report Already Submitted",
-                                        description: "You have already submitted a report for this event.",
-                                        variant: "destructive"
-                                      });
-                                    } else {
-                                      handleSubmitReport(event);
-                                    }
-                                  }}
-                                  variant="outline"
-                                  size="sm"
-                                  className={`border-green-500 text-green-500 hover:bg-green-50 ${submittedEventIds.includes(event.id) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                  disabled={submittedEventIds.includes(event.id)}
-                                >
-                                  <FileUp className="h-4 w-4" />
-                                </Button>
+                                ) : (
+                                  <Button
+                                    onClick={() => handleSubmitReport(event)}
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-green-500 text-green-500 hover:bg-green-50"
+                                  >
+                                    <FileUp className="h-4 w-4" />
+                                  </Button>
+                                )}
                               </>
                             )}
                             
@@ -1010,11 +1058,8 @@ Date: _________________
               </Table>
             </div>
             
-            {/* Pagination Info and Controls */}
-            <div className="flex items-center justify-between mt-4">
-              <div className="text-sm text-gray-600">
-                Showing {deptCurrentItems.length > 0 ? (deptCurrentPage - 1) * deptItemsPerPage + 1 : 0} to {Math.min(deptCurrentPage * deptItemsPerPage, filteredEvents.length)} of {filteredEvents.length} results
-              </div>
+            {/* Pagination Controls */}
+            <div className="flex justify-end mt-4">
               <div className="flex items-center space-x-2">
                 <Button
                   variant="outline"

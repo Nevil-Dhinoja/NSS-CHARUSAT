@@ -773,7 +773,10 @@ const Volunteers = () => {
                   <Input
                     id="edit-email"
                     value={editVolunteer.email}
-                    onChange={e => setEditVolunteer({ ...editVolunteer, email: e.target.value })}
+                    readOnly
+                    disabled
+                    className="bg-gray-100"
+                    placeholder="Email cannot be changed"
                   />
                 </div>
                 <div className="space-y-2">

@@ -855,10 +855,7 @@ const ProgramOfficers = () => {
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                  <div className="flex items-center justify-between space-x-2 py-4">
-                    <div className="text-sm text-muted-foreground">
-                      Showing {filteredOfficers.length > 0 ? indexOfFirstItem + 1 : 0} to {Math.min(indexOfLastItem, filteredOfficers.length)} of {filteredOfficers.length} results
-                    </div>
+                  <div className="flex justify-end space-x-2 py-4">
                     <div className="flex items-center space-x-2">
                       <Button
                         variant="outline"

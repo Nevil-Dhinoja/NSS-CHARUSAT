@@ -440,20 +440,26 @@ const Approvals = () => {
     }
     try {
       const user = JSON.parse(userStr);
-      let role = user.role ? user.role.toLowerCase() : "";
-      // Map full role names to abbreviations
+      const role = user.role ? user.role.toLowerCase() : "";
+      
+      // Map role to abbreviated form
       let mappedRole = role;
       if (role === "program coordinator") mappedRole = "pc";
       else if (role === "program officer") mappedRole = "po";
       else if (role === "student coordinator") mappedRole = "sc";
+      
+      // Allow both PC and PO roles (including full names and abbreviations)
+      if (mappedRole !== "pc" && mappedRole !== "po") {
+        window.location.href = "/dashboard";
+        return;
+      }
       setUserRole(mappedRole);
       setUserName(user.name);
       setUserEmail(user.email);
       setUserDepartment(user.department || "");
-      // Only allow PC and PO
-      if (mappedRole !== "pc" && mappedRole !== "po") {
-        window.location.href = "/dashboard";
-        return;
+      fetchWorkingHours();
+      if (mappedRole === "po" || mappedRole === "pc") {
+        fetchReports();
       }
     } catch (err) {
       localStorage.clear();
@@ -670,11 +676,8 @@ const Approvals = () => {
               </Table>
             </div>
             
-            {/* Pagination Info and Controls */}
-            <div className="flex items-center justify-between mt-4">
-              <div className="text-sm text-gray-600">
-                Showing {eventCurrentItems.length > 0 ? (eventCurrentPage - 1) * eventItemsPerPage + 1 : 0} to {Math.min(eventCurrentPage * eventItemsPerPage, filteredEventApprovals.length)} of {filteredEventApprovals.length} results
-              </div>
+            {/* Pagination Controls */}
+            <div className="flex justify-end mt-4">
               <div className="flex items-center space-x-2">
                 <Button
                   variant="outline"
@@ -810,11 +813,8 @@ const Approvals = () => {
               </Table>
             </div>
             
-            {/* Pagination Info and Controls */}
-            <div className="flex items-center justify-between mt-4">
-              <div className="text-sm text-gray-600">
-                Showing {whCurrentItems.length > 0 ? (whCurrentPage - 1) * whItemsPerPage + 1 : 0} to {Math.min(whCurrentPage * whItemsPerPage, currentItems.length)} of {currentItems.length} results
-              </div>
+            {/* Pagination Controls */}
+            <div className="flex justify-end mt-4">
               <div className="flex items-center space-x-2">
                 <Button
                   variant="outline"
