@@ -89,6 +89,7 @@ const Volunteers = () => {
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editVolunteer, setEditVolunteer] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
 
   React.useEffect(() => {
     const token = localStorage.getItem("nssUserToken");
@@ -264,10 +265,18 @@ const Volunteers = () => {
   };
 
   const handleUploadVolunteers = () => {
-    toast({
-      title: "Volunteers List Uploaded",
-      description: "The volunteers list has been uploaded successfully and sent for approval.",
-    });
+    if (!selectedFile) {
+      toast({
+        title: "No File Selected",
+        description: "Please select a file before uploading.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Trigger the file upload
+    const event = { target: { files: [selectedFile] } };
+    handleFileUpload(event);
   };
 
   const handleFileUpload = async (e) => {
@@ -294,6 +303,12 @@ const Volunteers = () => {
         title: "Upload Successful",
         description: data.message,
       });
+      
+      // Clear the selected file after successful upload
+      setSelectedFile(null);
+      
+      // Refresh the volunteers list after successful upload
+      await fetchVolunteers();
     } catch (error) {
       toast({
         title: "Upload Failed",
@@ -345,8 +360,8 @@ const Volunteers = () => {
         contact: "",
       });
 
-      // Refresh volunteer list from backend
-      fetchVolunteers();
+      // Refresh volunteer list from backend and await the result
+      await fetchVolunteers();
     } catch (error) {
       toast({
         title: "Add Failed",
@@ -465,13 +480,24 @@ const Volunteers = () => {
                   <div className="space-y-2">
                     <Label htmlFor="file">Excel/CSV File</Label>
                     <div className="border-2 border-dashed border-gray-300 rounded-md p-6 text-center">
-                      <Input id="file" type="file" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" onChange={handleFileUpload} className="hidden" />
+                      <Input 
+                        id="file" 
+                        type="file" 
+                        accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" 
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          setSelectedFile(file);
+                        }} 
+                        className="hidden" 
+                      />
                       <Label
                         htmlFor="file"
                         className="cursor-pointer flex flex-col items-center justify-center"
                       >
                         <Upload className="h-8 w-8 mb-2 text-muted-foreground" />
-                        <span className="text-sm font-medium">Click to upload volunteers list (Excel or CSV format)</span>
+                        <span className="text-sm font-medium">
+                          {selectedFile ? `Selected: ${selectedFile.name}` : "Click to upload volunteers list (Excel or CSV format)"}
+                        </span>
                         <span className="text-xs text-muted-foreground mt-1">
                           Upload file with columns: name, studentId, department, year, email, contact
                         </span>

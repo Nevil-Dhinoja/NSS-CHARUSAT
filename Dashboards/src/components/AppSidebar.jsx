@@ -27,6 +27,9 @@ import {
   SidebarHeader,
 } from "@/components/ui/sidebar";
 
+// Import the CHARUSAT logo
+import charusatLogo from "@/assets/NSS.png";
+
 export default function AppSidebar({ userRole, userName, userEmail }) {
 
   
@@ -150,12 +153,16 @@ export default function AppSidebar({ userRole, userName, userEmail }) {
     <Sidebar>
       <SidebarHeader className="border-b border-gray-200 p-4">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-lg">N</span>
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center overflow-hidden">
+            <img 
+              src={charusatLogo} 
+              alt="CHARUSAT Logo" 
+              className="w-full h-full object-contain"
+            />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-900">NSS Connect</h2>
-            <p className="text-sm text-gray-500">National Service Scheme</p>
+            <h2 className="text-lg font-bold text-white">NSS Connect</h2>
+            <p className="text-sm text-gray-300">National Service Scheme</p>
           </div>
         </div>
       </SidebarHeader>

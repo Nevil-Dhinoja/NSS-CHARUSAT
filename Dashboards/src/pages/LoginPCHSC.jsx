@@ -88,14 +88,8 @@ const LoginPCHSC = () => {
     }
   };
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-8 mb-8 border border-white/20">
-            <h1 className="text-4xl font-bold mb-3 text-white">NSS Connect</h1>
-            <p className="text-blue-100 text-lg">National Service Scheme Portal</p>
-          </div>
-        </div>
         <Card className="bg-white/95 backdrop-blur-sm shadow-2xl border-0 rounded-3xl overflow-hidden">
           <CardHeader className="text-center pb-4 pt-8 px-8">
             <CardTitle className="text-3xl font-bold text-gray-900 mb-2">
@@ -140,7 +134,7 @@ const LoginPCHSC = () => {
               </div>
               <Button
                 type="submit"
-                className="w-full h-14 rounded-xl text-lg font-semibold bg-blue-700 hover:bg-blue-800"
+                className="w-full h-14 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-semibold text-lg mt-8"
                 disabled={isLoading}
               >
                 {isLoading ? "Logging in..." : "Login"}

@@ -268,7 +268,7 @@ const StudentCoordinatorDashboard = ({ isHeadCoordinator = false }) => {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Reports Submitted</p>
-            <h3 className="text-2xl font-bold text-green-600">{recentReports.length}</h3>
+            <h3 className="text-2xl font-bold text-blue-900">{recentReports.length}</h3>
           </div>
         </div>
       </div>

@@ -184,7 +184,7 @@ const ProgramCoordinatorDashboard = () => {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Total Events</p>
-            <h3 className="text-2xl font-bold text-blue-600">{stats.totalEvents}</h3>
+            <h3 className="text-2xl font-bold text-blue-900">{stats.totalEvents}</h3>
           </div>
         </div>
         
@@ -194,7 +194,7 @@ const ProgramCoordinatorDashboard = () => {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Program Officers</p>
-            <h3 className="text-2xl font-bold text-blue-600">{stats.programOfficers}</h3>
+            <h3 className="text-2xl font-bold text-blue-900">{stats.programOfficers}</h3>
           </div>
         </div>
         
@@ -204,7 +204,7 @@ const ProgramCoordinatorDashboard = () => {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Student Coordinators</p>
-            <h3 className="text-2xl font-bold text-blue-600">{stats.studentCoordinators}</h3>
+            <h3 className="text-2xl font-bold text-blue-900">{stats.studentCoordinators}</h3>
           </div>
         </div>
         
@@ -214,7 +214,7 @@ const ProgramCoordinatorDashboard = () => {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Reports Submitted</p>
-            <h3 className="text-2xl font-bold text-blue-600">{stats.reportsSubmitted}</h3>
+            <h3 className="text-2xl font-bold text-blue-900">{stats.reportsSubmitted}</h3>
           </div>
         </div>
         
@@ -224,7 +224,7 @@ const ProgramCoordinatorDashboard = () => {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Upcoming Events</p>
-            <h3 className="text-2xl font-bold text-blue-600">{stats.upcomingEvents}</h3>
+            <h3 className="text-2xl font-bold text-blue-900">{stats.upcomingEvents}</h3>
           </div>
         </div>
         
@@ -234,7 +234,7 @@ const ProgramCoordinatorDashboard = () => {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Total Volunteers</p>
-            <h3 className="text-2xl font-bold text-blue-600">{stats.totalVolunteers}</h3>
+            <h3 className="text-2xl font-bold text-blue-900">{stats.totalVolunteers}</h3>
           </div>
         </div>
       </div>

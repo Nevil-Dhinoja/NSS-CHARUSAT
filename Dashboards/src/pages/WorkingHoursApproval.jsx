@@ -203,7 +203,7 @@ const WorkingHoursApproval = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Pending Approval</p>
-                  <h3 className="text-2xl font-bold text-amber-600">{pendingHours.length}</h3>
+                  <h3 className="text-2xl font-bold text-blue-900">{pendingHours.length}</h3>
                 </div>
               </div>
             </CardContent>
@@ -217,7 +217,7 @@ const WorkingHoursApproval = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Approved This Month</p>
-                  <h3 className="text-2xl font-bold text-green-600">{approvedHours.length}</h3>
+                  <h3 className="text-2xl font-bold text-blue-900">{approvedHours.length}</h3>
                 </div>
               </div>
             </CardContent>
@@ -231,7 +231,7 @@ const WorkingHoursApproval = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Rejected This Month</p>
-                  <h3 className="text-2xl font-bold text-red-600">{rejectedHours.length}</h3>
+                  <h3 className="text-2xl font-bold text-blue-900">{rejectedHours.length}</h3>
                 </div>
               </div>
             </CardContent>

@@ -518,7 +518,7 @@ const Approvals = () => {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Pending</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-2xl font-bold text-blue-900">
                     {eventApprovals.filter(a => a.status && a.status.toLowerCase() === "pending").length +
                       workingHours.filter(a => a.status && a.status.toLowerCase() === "pending").length}
                   </p>
@@ -535,7 +535,7 @@ const Approvals = () => {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Approved</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-2xl font-bold text-blue-900">
                     {workingHours.filter(a => a.status && a.status.toLowerCase() === "approved").length +
                       (userRole === 'pc' ? eventApprovals.filter(a => a.status && a.status.toLowerCase() === "approved").length : 0)}
                   </p>
@@ -552,7 +552,7 @@ const Approvals = () => {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Rejected</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-2xl font-bold text-blue-900">
                     {workingHours.filter(a => a.status && a.status.toLowerCase() === "rejected").length +
                       (userRole === 'pc' ? eventApprovals.filter(a => a.status && a.status.toLowerCase() === "rejected").length : 0)}
                   </p>

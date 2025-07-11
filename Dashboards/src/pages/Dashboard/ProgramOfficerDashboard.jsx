@@ -249,7 +249,7 @@ const ProgramOfficerDashboard = () => {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Total Volunteers</p>
-            <h3 className="text-2xl font-bold text-blue-600">
+            <h3 className="text-2xl font-bold text-blue-900">
               {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : stats.volunteers}
             </h3>
           </div>
@@ -261,7 +261,7 @@ const ProgramOfficerDashboard = () => {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Pending Approvals</p>
-            <h3 className="text-2xl font-bold text-blue-600">
+            <h3 className="text-2xl font-bold text-blue-900">
               {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : stats.pendingApprovals}
             </h3>
           </div>
@@ -273,7 +273,7 @@ const ProgramOfficerDashboard = () => {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Upcoming Events</p>
-            <h3 className="text-2xl font-bold text-blue-600">
+            <h3 className="text-2xl font-bold text-blue-900">
               {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : stats.upcomingEvents}
             </h3>
           </div>
@@ -285,7 +285,7 @@ const ProgramOfficerDashboard = () => {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Completed Events</p>
-            <h3 className="text-2xl font-bold text-blue-600">
+            <h3 className="text-2xl font-bold text-blue-900">
               {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : stats.completedEvents}
             </h3>
           </div>

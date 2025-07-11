@@ -8,7 +8,9 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "clean": "rm -rf node_modules/.vite dist && npm install",
+    "clean:full": "rm -rf node_modules package-lock.json dist && npm install"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
