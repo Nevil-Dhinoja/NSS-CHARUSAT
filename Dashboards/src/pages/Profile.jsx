@@ -40,7 +40,15 @@ const Profile = () => {
     try {
       const user = JSON.parse(userStr);
       const role = user.role ? user.role.toLowerCase() : "";
-      setUserRole(role);
+      
+      // Map role to abbreviated form for consistency
+      let mappedRole = role;
+      if (role === "program coordinator") mappedRole = "pc";
+      else if (role === "program officer") mappedRole = "po";
+      else if (role === "student coordinator") mappedRole = "sc";
+      else if (role === "head student coordinator") mappedRole = "hsc";
+      
+      setUserRole(mappedRole);
       setUserName(user.name);
       setUserEmail(user.email);
       fetchProfileData();
@@ -179,6 +187,7 @@ const Profile = () => {
       case "pc": return "from-purple-500 to-purple-700";
       case "po": return "from-blue-500 to-blue-700";
       case "sc": return "from-green-500 to-green-700";
+      case "hsc": return "from-orange-500 to-orange-700";
       default: return "from-slate-500 to-slate-700";
     }
   };
@@ -261,7 +270,7 @@ const Profile = () => {
                   </div>
                   <p className="text-gray-600 flex items-center justify-center">
                     <Building className="mr-1 h-4 w-4" />
-                    {profileData.department_name || "Department"}
+                    {(userRole === "pc" || userRole === "hsc") ? "CHARUSAT" : (profileData.department_name || "Department")}
                   </p>
                 </div>
               </CardContent>
@@ -322,18 +331,20 @@ const Profile = () => {
                       className={isEditing ? "" : "bg-gray-50"}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="department" className="flex items-center">
-                      <Building className="mr-1 h-4 w-4" />
-                      Department
-                    </Label>
-                    <Input
-                      id="department"
-                      value={profileData.department_name || ""}
-                      disabled={true}
-                      className="bg-gray-50"
-                    />
-                  </div>
+                  {(userRole !== "pc" && userRole !== "hsc") && (
+                    <div className="space-y-2">
+                      <Label htmlFor="department" className="flex items-center">
+                        <Building className="mr-1 h-4 w-4" />
+                        Department
+                      </Label>
+                      <Input
+                        id="department"
+                        value={profileData.department_name || ""}
+                        disabled={true}
+                        className="bg-gray-50"
+                      />
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="role" className="flex items-center">
                       <Shield className="mr-1 h-4 w-4" />
@@ -346,18 +357,20 @@ const Profile = () => {
                       className="bg-gray-50"
                     />
                   </div>
-                  <div className="space-y-2">
-                                         <Label htmlFor="institute" className="flex items-center">
-                       <Calendar className="mr-1 h-4 w-4" />
-                       Institute
-                    </Label>
-                    <Input
-                       id="institute"
-                       value={profileData.institute || ""}
-                       disabled={true}
-                       className="bg-gray-50"
-                    />
-                  </div>
+                  {(userRole !== "pc" && userRole !== "hsc") && (
+                    <div className="space-y-2">
+                      <Label htmlFor="institute" className="flex items-center">
+                        <Calendar className="mr-1 h-4 w-4" />
+                        Institute
+                      </Label>
+                      <Input
+                        id="institute"
+                        value={profileData.institute || ""}
+                        disabled={true}
+                        className="bg-gray-50"
+                      />
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

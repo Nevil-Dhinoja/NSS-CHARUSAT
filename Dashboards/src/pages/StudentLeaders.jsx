@@ -110,9 +110,10 @@ const StudentLeaders = () => {
       if (role === "program coordinator") mappedRole = "pc";
       else if (role === "program officer") mappedRole = "po";
       else if (role === "student coordinator") mappedRole = "sc";
+      else if (role === "head student coordinator") mappedRole = "hsc";
       
-      // Allow both PC and PO roles (including full names and abbreviations)
-      if (mappedRole !== "pc" && mappedRole !== "po") {
+      // Allow PC, PO, and HSC roles (including full names and abbreviations)
+      if (mappedRole !== "pc" && mappedRole !== "po" && mappedRole !== "hsc") {
         window.location.href = "/dashboard";
         return;
       }
@@ -129,7 +130,7 @@ const StudentLeaders = () => {
 
   // Fetch student leaders when user data is loaded
   React.useEffect(() => {
-    if (userRole && (userRole === "pc" || userRole === "po" || userDepartment)) {
+    if (userRole && (userRole === "pc" || userRole === "po" || userRole === "hsc" || userDepartment)) {
       fetchStudentLeaders();
       if (userRole === "pc") {
         fetchInstitutes();
@@ -153,8 +154,8 @@ const StudentLeaders = () => {
         
         // Filter based on user role and department
         let filteredLeaders;
-        if (userRole === "pc") {
-          // PC can see all departments (no filtering)
+        if (userRole === "pc" || userRole === "hsc") {
+          // PC and HSC can see all departments (no filtering)
           filteredLeaders = data;
         } else if (userRole === "po") {
           // PO can only see their department
@@ -308,7 +309,8 @@ const StudentLeaders = () => {
         },
         body: JSON.stringify({
           name: newLeader.name,
-          email: newLeader.email
+          email: newLeader.email,
+          password: newLeader.password || undefined
         }),
       });
 
@@ -354,11 +356,39 @@ const StudentLeaders = () => {
     }
   };
 
+  // Email validation function
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
   const handleAddSC = async () => {
-    if (!newSC.name || !newSC.email || !newSC.department) {
+    // Different validation for PC vs PO
+    if (userRole === "pc") {
+      if (!newSC.name || !newSC.email || !newSC.institute || !newSC.department) {
+        toast({
+          title: "Missing Information",
+          description: "Please fill in all required fields.",
+          variant: "destructive",
+        });
+        return;
+      }
+    } else {
+      if (!newSC.name || !newSC.email || !newSC.department) {
+        toast({
+          title: "Missing Information",
+          description: "Please fill in all required fields.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    // Validate email format
+    if (!validateEmail(newSC.email)) {
       toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields.",
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
         variant: "destructive",
       });
       return;
@@ -368,10 +398,23 @@ const StudentLeaders = () => {
     const token = localStorage.getItem("nssUserToken");
 
     try {
-      const scData = {
-        ...newSC,
-        department: userDepartment // Use the logged-in PO's department
-      };
+      let scData;
+      if (userRole === "pc") {
+        // For PC, use the selected institute and department
+        const selectedInstituteName = institutes.find(inst => inst.id.toString() === newSC.institute)?.name;
+        const selectedDepartmentName = departments.find(dep => dep.id.toString() === newSC.department)?.name;
+        scData = {
+          name: newSC.name,
+          email: newSC.email,
+          department: selectedDepartmentName || newSC.department
+        };
+      } else {
+        // For PO, use their department
+        scData = {
+          ...newSC,
+          department: userDepartment
+        };
+      }
 
       const response = await fetch("http://localhost:5000/api/auth/add-student-coordinator", {
         method: "POST",
@@ -394,7 +437,8 @@ const StudentLeaders = () => {
         setNewSC({
           name: "",
           email: "",
-          department: ""
+          department: "",
+          institute: ""
         });
         setIsAddingSC(false);
 
@@ -489,14 +533,22 @@ const StudentLeaders = () => {
     if (userRole === "pc" || userRole === "program coordinator") {
       if (selectedInstitute !== "all" && selectedDepartment !== "all") {
         // Both selected: AND
-        matchesInstitute = leader.institute_id && leader.institute_id.toString() === selectedInstitute;
-        matchesDepartment = leader.department_id && leader.department_id.toString() === selectedDepartment;
+        matchesInstitute = leader.institute_name && leader.institute_name.toLowerCase().includes(
+          institutes.find(inst => inst.id.toString() === selectedInstitute)?.name.toLowerCase() || ""
+        );
+        matchesDepartment = leader.department_name && leader.department_name.toLowerCase().includes(
+          departments.find(dept => dept.id.toString() === selectedDepartment)?.name.toLowerCase() || ""
+        );
       } else if (selectedInstitute !== "all") {
         // Only institute selected
-        matchesInstitute = leader.institute_id && leader.institute_id.toString() === selectedInstitute;
+        const selectedInstituteName = institutes.find(inst => inst.id.toString() === selectedInstitute)?.name;
+        matchesInstitute = leader.institute_name && selectedInstituteName && 
+          leader.institute_name.toLowerCase().includes(selectedInstituteName.toLowerCase());
       } else if (selectedDepartment !== "all") {
         // Only department selected
-        matchesDepartment = leader.department_id && leader.department_id.toString() === selectedDepartment;
+        const selectedDepartmentName = departments.find(dept => dept.id.toString() === selectedDepartment)?.name;
+        matchesDepartment = leader.department_name && selectedDepartmentName && 
+          leader.department_name.toLowerCase().includes(selectedDepartmentName.toLowerCase());
       }
     }
     
@@ -543,9 +595,9 @@ const StudentLeaders = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            {(userRole === "pc" || userRole === "po") && (
+            {(userRole === "pc" || userRole === "po") && userRole !== "hsc" && (
               <>
-                {userRole === "po" && (
+                {userRole === "pc" && (
                   <Dialog open={isAddingSC} onOpenChange={setIsAddingSC}>
                     <DialogTrigger asChild>
                       <Button 
@@ -553,7 +605,8 @@ const StudentLeaders = () => {
                         onClick={() => setNewSC({
                           name: "",
                           email: "",
-                          department: ""
+                          department: "",
+                          institute: ""
                         })}
                       >
                         <User className="h-4 w-4 mr-2" />
@@ -564,7 +617,7 @@ const StudentLeaders = () => {
                       <DialogHeader>
                         <DialogTitle>Add New Student Coordinator</DialogTitle>
                         <DialogDescription>
-                          Add a new Student Coordinator to your department. They will receive a welcome email with login credentials.
+                          Add a new Student Coordinator for any department. They will receive a welcome email with login credentials.
                         </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4 py-4">
@@ -588,14 +641,33 @@ const StudentLeaders = () => {
                           />
                         </div>
                         <div className="space-y-2">
+                          <Label htmlFor="sc-institute">Institute *</Label>
+                          <Select value={newSC.institute} onValueChange={(value) => {
+                            setNewSC({ ...newSC, institute: value, department: "" });
+                            if (value) fetchDepartments(value);
+                          }}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Select Institute" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {institutes && institutes.length > 0 && institutes.map(inst => (
+                                <SelectItem key={inst.id} value={inst.id.toString()}>{inst.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
                           <Label htmlFor="sc-department">Department *</Label>
-                          <Input
-                            id="sc-department"
-                            value={userDepartment}
-                            readOnly
-                            disabled
-                            className="bg-gray-100"
-                          />
+                          <Select value={newSC.department} onValueChange={(value) => setNewSC({ ...newSC, department: value })}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Select Department" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {departments && departments.length > 0 && departments.map(dep => (
+                                <SelectItem key={dep.id} value={dep.id.toString()}>{dep.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="sc-role">Role *</Label>
@@ -622,7 +694,7 @@ const StudentLeaders = () => {
         </div>
 
         {/* Filters for PC role */}
-        {(userRole === "pc" || userRole === "program coordinator") && (
+        {(userRole === "pc" || userRole === "program coordinator") && userRole !== "hsc" && (
           <div className="flex flex-col md:flex-row gap-4 mb-4">
             <div className="w-full md:w-1/2">
               <Label>Institute</Label>
@@ -692,7 +764,14 @@ const StudentLeaders = () => {
                 <Label htmlFor="edit-department">Department</Label>
                 <Input
                   id="edit-department"
-                  value={userDepartment}
+                  value={(() => {
+                    if (userRole === "pc") {
+                      // Try to find department name from departments list
+                      return departments.find(dep => dep.id?.toString() === (editingLeader?.department_id?.toString() || editingLeader?.department?.toString()))?.name || editingLeader?.department_name || editingLeader?.department || "";
+                    } else {
+                      return userDepartment;
+                    }
+                  })()}
                   readOnly
                   disabled
                   className="bg-gray-100"
@@ -706,6 +785,16 @@ const StudentLeaders = () => {
                   readOnly
                   disabled
                   className="bg-gray-100"
+                />
+              </div>
+              <div className="md:col-span-2 space-y-2">
+                <Label htmlFor="edit-password">Password (leave blank to keep current)</Label>
+                <Input
+                  id="edit-password"
+                  type="password"
+                  value={newLeader.password || ""}
+                  onChange={(e) => setNewLeader({ ...newLeader, password: e.target.value })}
+                  placeholder="Enter new password (optional)"
                 />
               </div>
               <div className="md:col-span-2 flex justify-end gap-2">
@@ -725,14 +814,14 @@ const StudentLeaders = () => {
           <CardHeader>
             <CardTitle className="flex items-center">
               <Users className="mr-2 h-5 w-5" />
-                {userRole === "pc" || userRole === "program coordinator" 
+                {(userRole === "pc" || userRole === "program coordinator" || userRole === "hsc")
                   ? "All Department Student Leaders"
                   : `${userDepartment} Department Student Leaders`
                 }
             </CardTitle>
             <CardDescription>
-                {userRole === "pc" || userRole === "program coordinator"
-                  ? "Manage all department NSS student coordinators"
+                {(userRole === "pc" || userRole === "program coordinator" || userRole === "hsc")
+                  ? "View all department NSS student coordinators"
                   : `Manage ${userDepartment} department NSS student coordinators`
                 }
             </CardDescription>
@@ -746,13 +835,13 @@ const StudentLeaders = () => {
                     <TableHead>Contact</TableHead>
                     <TableHead>Department</TableHead>
                     <TableHead>Position</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    {userRole !== "hsc" && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-4">
+                      <TableCell colSpan={userRole === "hsc" ? 4 : 5} className="text-center py-4">
                         Loading student leaders...
                       </TableCell>
                     </TableRow>
@@ -788,31 +877,32 @@ const StudentLeaders = () => {
                         </div>
                       </TableCell>
                         <TableCell>{getPositionBadge("Student Coordinator")}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex gap-2 justify-end">
-                          {(userRole === "pc" || userRole === "program coordinator" || userRole === "po" || userRole === "program officer") && (
-                            <Button
-                              onClick={() => handleEditLeader(leader)}
-                              variant="outline"
-                              size="sm"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {(userRole === "pc" || userRole === "program coordinator" || userRole === "po" || userRole === "program officer") && (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="border-red-500 text-red-500 hover:bg-red-50"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete Student Coordinator</AlertDialogTitle>
+                      {userRole !== "hsc" && (
+                        <TableCell className="text-right">
+                          <div className="flex gap-2 justify-end">
+                            {(userRole === "pc" || userRole === "program coordinator" || userRole === "po" || userRole === "program officer") && userRole !== "hsc" && (
+                              <Button
+                                onClick={() => handleEditLeader(leader)}
+                                variant="outline"
+                                size="sm"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {(userRole === "pc" || userRole === "program coordinator" || userRole === "po" || userRole === "program officer") && userRole !== "hsc" && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-red-500 text-red-500 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Student Coordinator</AlertDialogTitle>
                                   <AlertDialogDescription>
                                     Are you sure you want to delete <strong>{leader.name}</strong>? This action cannot be undone and will remove their access to the system.
                                   </AlertDialogDescription>
@@ -831,11 +921,12 @@ const StudentLeaders = () => {
                           )}
                         </div>
                       </TableCell>
+                      )}
                     </TableRow>
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-4">
+                      <TableCell colSpan={userRole === "hsc" ? 4 : 5} className="text-center py-4">
                         No department student leaders found.
                       </TableCell>
                     </TableRow>

@@ -128,8 +128,8 @@ const LoginPCHSC = () => {
                   className="h-14 rounded-xl bg-gray-50 text-base w-full px-4"
                 >
                   <option value="">Select Role</option>
-                  <option value="PC">Program Coordinator</option>
-                  <option value="HSC">Head Student Coordinator</option>
+                  <option value="pc">Program Coordinator</option>
+                  <option value="hsc">Head Student Coordinator</option>
                 </select>
               </div>
               <Button

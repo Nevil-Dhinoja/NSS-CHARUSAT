@@ -240,26 +240,11 @@ const ProgramCoordinatorDashboard = () => {
       </div>
       
       {/* Reports Submitted Section */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center">
-                <FileText className="mr-2 h-5 w-5" />
-                Reports Approved by PO
-              </CardTitle>
-              <CardDescription>
-                Recent event reports that have been approved by Program Officers ({reportsSubmitted.length})
-              </CardDescription>
-            </div>
-            <Link
-              to="/approvals"
-              className="text-blue-600 hover:underline text-sm"
-            >
-              View All Reports
-            </Link>
+      <Card className="p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg sm:text-xl font-semibold text-blue-900">Reports Approved by PO</h2>
+          <Link to="/approvals" className="text-blue-600 hover:underline text-sm">View All Reports</Link>
         </div>
-        </CardHeader>
         
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -276,10 +261,10 @@ const ProgramCoordinatorDashboard = () => {
               {reportsSubmitted.length > 0 ? (
                 reportsSubmitted.map((report) => (
                   <tr key={report.id} className="border-b hover:bg-muted/50">
-                    <td className="p-2">{report.event_name}</td>
+                    <td className="p-2 font-medium">{report.event_name}</td>
                     <td className="p-2">{report.department_name}</td>
-                    <td className="p-2">{report.submitted_by}</td>
-                    <td className="p-2">{new Date(report.submitted_at).toLocaleDateString()}</td>
+                    <td className="p-2">{report.submitted_by_name || report.submitted_by}</td>
+                    <td className="p-2">{new Date(report.created_at).toLocaleDateString()}</td>
                     <td className="p-2 flex justify-center">
                       <span className={`px-2 py-1 rounded-full text-xs ${
                         report.status === 'approved' ? 'bg-green-100 text-green-800' :
@@ -317,8 +302,7 @@ const ProgramCoordinatorDashboard = () => {
                 <th className="p-2 text-left">Event Name</th>
                 <th className="p-2 text-left">Department</th>
                 <th className="p-2 text-left">Date</th>
-                <th className="p-2 text-left">Location</th>
-                <th className="p-2 text-center">Actions</th>
+                <th className="p-2 text-left">Mode</th>
               </tr>
             </thead>
             <tbody>
@@ -328,25 +312,20 @@ const ProgramCoordinatorDashboard = () => {
                     <td className="p-2 font-medium">{event.event_name}</td>
                     <td className="p-2">{event.department_name}</td>
                     <td className="p-2">{new Date(event.event_date).toLocaleDateString()}</td>
-                    <td className="p-2">{event.location}</td>
-                    <td className="p-2 flex justify-center space-x-2">
-                      <Link to={`/events/${event.id}`}>
-                        <Button variant="outline" size="sm">
-                  View Details
-                        </Button>
-                </Link>
-                      <Link to={`/events/${event.id}/report`}>
-                        <Button variant="outline" size="sm">
-                  <FileText className="h-4 w-4 mr-1" />
-                  Report
-                        </Button>
-                </Link>
+                    <td className="p-2">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        event.event_mode === 'online' ? 'bg-blue-100 text-blue-800' :
+                        event.event_mode === 'offline' ? 'bg-green-100 text-green-800' :
+                        'bg-purple-100 text-purple-800'
+                      }`}>
+                        {event.event_mode ? event.event_mode.charAt(0).toUpperCase() + event.event_mode.slice(1) : 'N/A'}
+                      </span>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="p-4 text-center text-muted-foreground">
+                  <td colSpan={4} className="p-4 text-center text-muted-foreground">
                     No events found.
                   </td>
                 </tr>

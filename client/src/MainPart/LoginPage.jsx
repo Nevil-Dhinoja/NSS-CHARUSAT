@@ -84,7 +84,7 @@
 //       }
 
 //     } catch (error) {
-//       console.error('Login error:', error);
+
 //       alert('Network error. Please check your connection and try again.');
 //     } finally {
 //       setIsLoading(false);
@@ -204,7 +204,7 @@ import { useEffect } from "react";
 
 function LoginPage() {
   useEffect(() => {
-    window.location.href = "http://localhost:8080/"; // your dashboard app’s login
+    window.location.href = process.env.REACT_APP_DASHBOARD_URL || "http://localhost:8080/"; // your dashboard app's login
   }, []);
 
   return <p>Redirecting to NSS Dashboard Login...</p>;

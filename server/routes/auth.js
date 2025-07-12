@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 const verifyToken = require('../middleware/verifyToken');
-const { sendWelcomeEmail, sendNotificationToPO } = require('../services/emailService');
+const { sendWelcomeEmail, sendNotificationToPO, sendWelcomeEmailToPO, sendNotificationToPC, validateEmail, validatePOEmail, validateSCEmail, checkEmailExists } = require('../services/emailService');
 
 // Login route
 router.post('/login', async (req, res) => {
@@ -32,7 +32,8 @@ router.post('/login', async (req, res) => {
       const roleMapping = {
         'pc': 'Program Coordinator',
         'po': 'Program Officer', 
-        'sc': 'Student Coordinator'
+        'sc': 'Student Coordinator',
+        'hsc': 'Head Student Coordinator'
       };
       const expectedRole = roleMapping[role.toLowerCase()];
       
@@ -62,7 +63,7 @@ router.post('/login', async (req, res) => {
         department: user.department_name,
         email: user.email 
       },
-      process.env.JWT_SECRET || 'your-secret-key',
+      process.env.JWT_SECRET || 'nss-charusat-jwt-secret-2024',
       { expiresIn: '24h' }
     );
     
@@ -87,11 +88,11 @@ router.post('/add-student-coordinator', verifyToken, async (req, res) => {
   const poId = req.user.id;
   const poRole = req.user.role?.toLowerCase();
 
-  // Only PO can add SC
-  if (poRole !== 'po' && poRole !== 'program officer') {
+  // Allow both PO and PC to add SC
+  if (poRole !== 'po' && poRole !== 'program officer' && poRole !== 'pc' && poRole !== 'program coordinator') {
     return res.status(403).json({ 
       success: false, 
-      message: 'Access denied. Only Program Officers can add Student Coordinators.' 
+      message: 'Access denied. Only Program Officers and Program Coordinators can add Student Coordinators.' 
     });
   }
 
@@ -100,6 +101,28 @@ router.post('/add-student-coordinator', verifyToken, async (req, res) => {
     return res.status(400).json({ 
       success: false, 
       message: 'All fields are required: name, email, department' 
+    });
+  }
+
+  // Validate email format
+  if (!validateEmail(email)) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Invalid email format. Please enter a valid email address.' 
+    });
+  }
+  // Validate SC email domain (must end with @charusat.edu.in)
+  if (req.path.includes('student-coordinator') && !validateSCEmail(email)) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Student Coordinator email must end with @charusat.edu.in' 
+    });
+  }
+  // Validate PO email domain (must end with @charusat.ac.in)
+  if (req.path.includes('program-officer') && req.method === 'POST' && !validatePOEmail(email)) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Program Officer email must end with @charusat.ac.in' 
     });
   }
   
@@ -238,11 +261,11 @@ router.put('/student-coordinator/:id', verifyToken, async (req, res) => {
   const { name, email } = req.body;
   const poRole = req.user.role?.toLowerCase();
 
-  // Only PO can update SC
-  if (poRole !== 'po' && poRole !== 'program officer') {
+  // Allow both PO and PC to update SC
+  if (poRole !== 'po' && poRole !== 'program officer' && poRole !== 'pc' && poRole !== 'program coordinator') {
     return res.status(403).json({ 
       success: false, 
-      message: 'Access denied. Only Program Officers can update Student Coordinators.' 
+      message: 'Access denied. Only Program Officers and Program Coordinators can update Student Coordinators.' 
     });
   }
 
@@ -316,11 +339,11 @@ router.delete('/student-coordinator/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
   const poRole = req.user.role?.toLowerCase();
 
-  // Only PO can delete SC
-  if (poRole !== 'po' && poRole !== 'program officer') {
+  // Allow both PO and PC to delete SC
+  if (poRole !== 'po' && poRole !== 'program officer' && poRole !== 'pc' && poRole !== 'program coordinator') {
     return res.status(403).json({ 
       success: false, 
-      message: 'Access denied. Only Program Officers can delete Student Coordinators.' 
+      message: 'Access denied. Only Program Officers and Program Coordinators can delete Student Coordinators.' 
     });
   }
 
@@ -413,6 +436,398 @@ router.get('/student-coordinators', verifyToken, (req, res) => {
       studentCoordinators: result
     });
   });
+});
+
+// Add Program Officer (PC only)
+router.post('/users/program-officer', verifyToken, async (req, res) => {
+  const { name, login_id, email, institute_id, department_id, password } = req.body;
+  const pcRole = req.user.role?.toLowerCase();
+
+  // Only PC can add PO
+  if (pcRole !== 'pc' && pcRole !== 'program coordinator') {
+    return res.status(403).json({ 
+      success: false, 
+      message: 'Access denied. Only Program Coordinators can add Program Officers.' 
+    });
+  }
+
+  // Validate required fields
+  if (!name || !login_id || !email || !institute_id || !department_id || !password) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'All fields are required: name, login_id, email, institute_id, department_id, password' 
+    });
+  }
+
+  // Validate email format
+  if (!validateEmail(email)) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Invalid email format. Please enter a valid email address.' 
+    });
+  }
+  // Validate PO email domain (must end with @charusat.ac.in)
+  if (req.path.includes('program-officer') && req.method === 'POST' && !validatePOEmail(email)) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Program Officer email must end with @charusat.ac.in' 
+    });
+  }
+  
+  try {
+    // Check if email already exists
+    const checkEmailSql = 'SELECT id FROM assigned_users WHERE email = ?';
+    db.query(checkEmailSql, [email], async (err, emailResult) => {
+      if (err) {
+        return res.status(500).json({ success: false, message: 'Database error' });
+      }
+
+      if (emailResult.length > 0) {
+        return res.status(409).json({ 
+          success: false, 
+          message: 'A user with this email already exists' 
+        });
+      }
+
+      // Check if login_id already exists
+      const checkLoginSql = 'SELECT id FROM assigned_users WHERE login_id = ?';
+      db.query(checkLoginSql, [login_id], async (err, loginResult) => {
+        if (err) {
+          return res.status(500).json({ success: false, message: 'Database error' });
+        }
+
+        if (loginResult.length > 0) {
+          return res.status(409).json({ 
+            success: false, 
+            message: 'A user with this login ID already exists' 
+          });
+        }
+
+        // Verify that the department belongs to the specified institute
+        const verifyDeptSql = 'SELECT id FROM departments WHERE id = ? AND institute_id = ?';
+        db.query(verifyDeptSql, [department_id, institute_id], async (err, deptResult) => {
+          if (err) {
+            return res.status(500).json({ success: false, message: 'Database error' });
+          }
+
+          if (deptResult.length === 0) {
+            return res.status(400).json({ 
+              success: false, 
+              message: 'Department does not belong to the specified institute' 
+            });
+          }
+
+          // Get PO role ID
+          const roleSql = 'SELECT id FROM roles WHERE role_name = ?';
+          db.query(roleSql, ['Program Officer'], async (err, roleResult) => {
+            if (err) {
+              return res.status(500).json({ success: false, message: 'Database error' });
+            }
+
+            if (roleResult.length === 0) {
+              return res.status(404).json({ 
+                success: false, 
+                message: 'Program Officer role not found' 
+              });
+            }
+
+            const roleId = roleResult[0].id;
+
+            // Hash password
+            const hashedPassword = await bcrypt.hash(password, 10);
+
+            // Get institute and department names for email
+            const getNamesSql = `
+              SELECT i.name as institute_name, d.name as department_name 
+              FROM institutes i 
+              JOIN departments d ON d.institute_id = i.id 
+              WHERE i.id = ? AND d.id = ?
+            `;
+            
+            db.query(getNamesSql, [institute_id, department_id], async (err, namesResult) => {
+              if (err) {
+                return res.status(500).json({ success: false, message: 'Database error' });
+              }
+
+              if (namesResult.length === 0) {
+                return res.status(404).json({ 
+                  success: false, 
+                  message: 'Institute or department not found' 
+                });
+              }
+
+              const instituteName = namesResult[0].institute_name;
+              const departmentName = namesResult[0].department_name;
+
+              // Insert new PO (only department_id, not institute_id)
+              const insertSql = `
+                INSERT INTO assigned_users (name, email, login_id, password_hash, department_id, role_id)
+                VALUES (?, ?, ?, ?, ?, ?)
+              `;
+              
+              db.query(insertSql, [name, email, login_id, hashedPassword, department_id, roleId], async (err, result) => {
+                if (err) {
+                  return res.status(500).json({ success: false, message: 'Database error' });
+                }
+
+                const poId = result.insertId;
+                
+                const pc = {
+                  name: req.user.name,
+                  email: req.user.email
+                };
+
+                let emailResult = { success: false };
+                let notificationResult = { success: false };
+
+                try {
+                  // Send welcome email to PO
+                  emailResult = await sendWelcomeEmailToPO(
+                    email, 
+                    name, 
+                    pc.name, 
+                    pc.email, 
+                    departmentName, 
+                    instituteName, 
+                    password
+                  );
+                } catch (emailError) {
+                  console.error('Email error:', emailError);
+                  // Continue without failing the entire operation
+                }
+
+                try {
+                  // Send notification to PC
+                  notificationResult = await sendNotificationToPC(
+                    pc.email,
+                    pc.name,
+                    name,
+                    email,
+                    departmentName,
+                    instituteName
+                  );
+                } catch (notificationError) {
+                  console.error('Notification error:', notificationError);
+                  // Continue without failing the entire operation
+                }
+                
+                res.status(201).json({ 
+                  success: true,
+                  message: 'Program Officer added successfully',
+                  po: {
+                    id: poId,
+                    name,
+                    email,
+                    login_id,
+                    department_id,
+                    institute_name: instituteName,
+                    department_name: departmentName
+                  },
+                  emailSent: emailResult.success,
+                  notificationSent: notificationResult.success
+                });
+              });
+            });
+          });
+        });
+      });
+    });
+  } catch (error) {
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Server error',
+      error: error.message 
+    });
+  }
+});
+
+// Update Program Officer (PC only)
+router.put('/users/program-officer/:id', verifyToken, async (req, res) => {
+  const { id } = req.params;
+  const { name, login_id, email, institute_id, department_id, password } = req.body;
+  const pcRole = req.user.role?.toLowerCase();
+
+  // Only PC can update PO
+  if (pcRole !== 'pc' && pcRole !== 'program coordinator') {
+    return res.status(403).json({ 
+      success: false, 
+      message: 'Access denied. Only Program Coordinators can update Program Officers.' 
+    });
+  }
+
+  // Validate required fields
+  if (!name || !login_id || !email || !institute_id || !department_id) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'All fields are required: name, login_id, email, institute_id, department_id' 
+    });
+  }
+
+  try {
+    // Check if email already exists for other users
+    const checkEmailSql = 'SELECT id FROM assigned_users WHERE email = ? AND id != ?';
+    db.query(checkEmailSql, [email, id], async (err, emailResult) => {
+      if (err) {
+        return res.status(500).json({ success: false, message: 'Database error' });
+      }
+
+      if (emailResult.length > 0) {
+        return res.status(409).json({ 
+          success: false, 
+          message: 'A user with this email already exists' 
+        });
+      }
+
+      // Check if login_id already exists for other users
+      const checkLoginSql = 'SELECT id FROM assigned_users WHERE login_id = ? AND id != ?';
+      db.query(checkLoginSql, [login_id, id], async (err, loginResult) => {
+        if (err) {
+          return res.status(500).json({ success: false, message: 'Database error' });
+        }
+
+        if (loginResult.length > 0) {
+          return res.status(409).json({ 
+            success: false, 
+            message: 'A user with this login ID already exists' 
+          });
+        }
+
+        // Verify that the department belongs to the specified institute
+        const verifyDeptSql = 'SELECT id FROM departments WHERE id = ? AND institute_id = ?';
+        db.query(verifyDeptSql, [department_id, institute_id], async (err, deptResult) => {
+          if (err) {
+            return res.status(500).json({ success: false, message: 'Database error' });
+          }
+
+          if (deptResult.length === 0) {
+            return res.status(400).json({ 
+              success: false, 
+              message: 'Department does not belong to the specified institute' 
+            });
+          }
+
+          // Update PO (only department_id, not institute_id)
+          let updateSql = `
+            UPDATE assigned_users 
+            SET name = ?, email = ?, login_id = ?, department_id = ?
+          `;
+          let updateValues = [name, email, login_id, department_id];
+
+          // Add password update if provided
+          if (password) {
+            const hashedPassword = await bcrypt.hash(password, 10);
+            updateSql += `, password_hash = ?`;
+            updateValues.push(hashedPassword);
+          }
+
+          updateSql += ` WHERE id = ? AND role_id = (SELECT id FROM roles WHERE role_name = 'Program Officer')`;
+          updateValues.push(id);
+
+          db.query(updateSql, updateValues, async (err, result) => {
+            if (err) {
+              return res.status(500).json({ success: false, message: 'Database error' });
+            }
+
+            if (result.affectedRows === 0) {
+              return res.status(404).json({ 
+                success: false, 
+                message: 'Program Officer not found or access denied' 
+              });
+            }
+
+            res.json({
+              success: true,
+              message: 'Program Officer updated successfully',
+              po: {
+                id,
+                name,
+                email,
+                login_id,
+                department_id
+              }
+            });
+          });
+        });
+      });
+    });
+  } catch (error) {
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Server error',
+      error: error.message 
+    });
+  }
+});
+
+// Delete Program Officer (PC only)
+router.delete('/users/program-officer/:id', verifyToken, async (req, res) => {
+  const { id } = req.params;
+  const pcRole = req.user.role?.toLowerCase();
+
+  // Only PC can delete PO
+  if (pcRole !== 'pc' && pcRole !== 'program coordinator') {
+    return res.status(403).json({ 
+      success: false, 
+      message: 'Access denied. Only Program Coordinators can delete Program Officers.' 
+    });
+  }
+
+  try {
+    // Get PO details before deletion
+    const getPoSql = `
+      SELECT au.name, au.email, d.name as department_name, i.name as institute_name
+      FROM assigned_users au
+      LEFT JOIN departments d ON au.department_id = d.id
+      LEFT JOIN institutes i ON d.institute_id = i.id
+      WHERE au.id = ? AND au.role_id = (SELECT id FROM roles WHERE role_name = 'Program Officer')
+    `;
+    
+    db.query(getPoSql, [id], async (err, poResult) => {
+      if (err) {
+        return res.status(500).json({ success: false, message: 'Database error' });
+      }
+
+      if (poResult.length === 0) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Program Officer not found' 
+        });
+      }
+
+      const po = poResult[0];
+
+      // Delete PO
+      const deleteSql = `
+        DELETE FROM assigned_users 
+        WHERE id = ? AND role_id = (SELECT id FROM roles WHERE role_name = 'Program Officer')
+      `;
+      
+      db.query(deleteSql, [id], async (err, result) => {
+        if (err) {
+          return res.status(500).json({ success: false, message: 'Database error' });
+        }
+
+        if (result.affectedRows === 0) {
+          return res.status(404).json({ 
+            success: false, 
+            message: 'Program Officer not found or access denied' 
+          });
+        }
+
+        res.json({
+          success: true,
+          message: `Program Officer ${po.name} has been deleted successfully`,
+          deletedPo: po
+        });
+      });
+    });
+  } catch (error) {
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Server error',
+      error: error.message 
+    });
+  }
 });
 
 // Get users by role

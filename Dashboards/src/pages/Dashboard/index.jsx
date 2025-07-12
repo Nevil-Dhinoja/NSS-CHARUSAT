@@ -4,6 +4,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import ProgramCoordinatorDashboard from "./ProgramCoordinatorDashboard";
 import ProgramOfficerDashboard from "./ProgramOfficerDashboard";
 import StudentCoordinatorDashboard from "./StudentCoordinatorDashboard";
+import HeadStudentCoordinatorDashboard from "./HeadStudentCoordinatorDashboard";
 import { isJwtExpired } from "@/components/decodeJwtToken";
 
 const Dashboard = () => {
@@ -53,7 +54,7 @@ useEffect(() => {
       case "pc": return <ProgramCoordinatorDashboard />;
       case "po": return <ProgramOfficerDashboard />;
       case "sc": return <StudentCoordinatorDashboard />;
-      case "hsc": return <StudentCoordinatorDashboard />; // HSC gets same dashboard as SC
+      case "hsc": return <HeadStudentCoordinatorDashboard />; // HSC gets their own dashboard
       default: return <div className="text-center text-red-600">Access Denied</div>;
     }
   };

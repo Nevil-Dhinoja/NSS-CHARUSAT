@@ -156,9 +156,9 @@ router.get('/all', verifyToken, (req, res) => {
   // Accept both 'PO' and 'Program Officer' (case-insensitive)
   const role = (req.user.role || '').toLowerCase();
   
-  if (role !== 'program officer' && role !== 'po' && role !== 'pc' && role !== 'program coordinator') {
+  if (role !== 'program officer' && role !== 'po' && role !== 'pc' && role !== 'program coordinator' && role !== 'hsc' && role !== 'head student coordinator') {
     return res.status(403).json({ 
-      error: 'Access denied. Only Program Officers and Program Coordinators can view all working hours.',
+      error: 'Access denied. Only Program Officers, Program Coordinators, and Head Student Coordinators can view all working hours.',
       userRole: req.user.role,
       normalizedRole: role
     });
@@ -199,7 +199,7 @@ router.get('/all', verifyToken, (req, res) => {
       });
     });
   } else {
-    // For PC users, show all working hours
+    // For PC and HSC users, show all working hours
     const sql = `
       SELECT wh.*, au.name as student_name, au.department_id, d.name as department_name
       FROM working_hours wh

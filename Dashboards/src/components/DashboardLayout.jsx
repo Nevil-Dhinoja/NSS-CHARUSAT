@@ -126,11 +126,15 @@ const DashboardLayout = ({ children, userRole, userName, userEmail }) => {
                         color: "#1e40af",
                         backgroundColor: "#dbeafe"
                       }}>
-                        {userRole === "pc"
+                        {userRole === "pc" || userRole === "program coordinator"
                           ? "Program Coordinator"
-                          : userRole === "po"
+                          : userRole === "po" || userRole === "program officer"
                             ? "Program Officer"
-                            : "Student Coordinator"}
+                            : userRole === "sc" || userRole === "student coordinator"
+                              ? "Student Coordinator"
+                              : userRole === "hsc" || userRole === "head student coordinator"
+                                ? "Head Student Coordinator"
+                                : "User"}
                       </div>
                     </div>
                   </DropdownMenuLabel>

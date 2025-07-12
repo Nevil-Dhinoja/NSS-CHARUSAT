@@ -92,6 +92,7 @@ const ProgramOfficers = () => {
   React.useEffect(() => {
     const token = localStorage.getItem("nssUserToken");
     const userStr = localStorage.getItem("nssUser");
+    
     if (!token || !userStr) {
       window.location.href = "/login";
       return;
@@ -99,7 +100,10 @@ const ProgramOfficers = () => {
     try {
       const user = JSON.parse(userStr);
       const role = user.role ? user.role.toLowerCase() : "";
-      if (role !== "pc") {
+      
+      // Allow both "pc" and "program coordinator" roles (case-insensitive)
+      const allowedRoles = ["pc", "program coordinator"];
+      if (!allowedRoles.includes(role)) {
         window.location.href = "/dashboard";
         return;
       }
@@ -166,11 +170,9 @@ const ProgramOfficers = () => {
         const data = await response.json();
         setInstitutes(data);
       } else {
-        console.error("Error fetching institutes:", response.status, response.statusText);
         setInstitutes([]);
       }
     } catch (error) {
-      console.error("Error fetching institutes:", error);
       setInstitutes([]);
     }
   };
@@ -194,11 +196,9 @@ const ProgramOfficers = () => {
         const data = await response.json();
         setDepartments(data);
       } else {
-        console.error("Error fetching departments:", response.status, response.statusText);
         setDepartments([]);
       }
     } catch (error) {
-      console.error("Error fetching departments:", error);
       setDepartments([]);
     }
   };
@@ -228,6 +228,13 @@ const ProgramOfficers = () => {
       password: "",
       position: "Program Officer"
     });
+    setDepartments([]);
+  };
+
+  // Email validation function
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
   };
 
   const handleAddOfficer = async () => {
@@ -235,6 +242,16 @@ const ProgramOfficers = () => {
       toast({
         title: "Missing Information",
         description: "Please fill in all required fields.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate email format
+    if (!validateEmail(newOfficer.email)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
         variant: "destructive"
       });
       return;
@@ -284,13 +301,13 @@ const ProgramOfficers = () => {
       if (response.ok) {
         toast({
           title: "Program Officer Added",
-          description: "New program officer has been added successfully.",
+          description: `New program officer has been added successfully. ${data.emailSent ? 'Welcome email sent.' : 'Email not sent.'}`,
         });
         setIsAddingOfficer(false);
         initializeForm();
         fetchProgramOfficers(); // Refresh the list
       } else {
-        throw new Error(data.error || "Failed to add program officer");
+        throw new Error(data.error || data.message || "Failed to add program officer");
       }
     } catch (error) {
       console.error("Add error:", error);
@@ -323,6 +340,12 @@ const ProgramOfficers = () => {
       password: "",
       position: "Program Officer"
     });
+    
+    // Fetch departments for the institute if editing
+    if (officer.institute_id) {
+      fetchDepartments(officer.institute_id);
+    }
+    
     setIsEditingOfficer(true);
   };
 
@@ -331,6 +354,16 @@ const ProgramOfficers = () => {
       toast({
         title: "Missing Information",
         description: "Please fill in all required fields.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate email format
+    if (!validateEmail(newOfficer.email)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
         variant: "destructive"
       });
       return;
@@ -387,7 +420,7 @@ const ProgramOfficers = () => {
         initializeForm();
         fetchProgramOfficers(); // Refresh the list
       } else {
-        throw new Error(data.error || "Failed to update program officer");
+        throw new Error(data.error || data.message || "Failed to update program officer");
       }
     } catch (error) {
       console.error("Update error:", error);
@@ -444,14 +477,12 @@ const ProgramOfficers = () => {
         toast({
           title: "Program Officer Removed",
           description: `${officerName} has been removed from program officers.`,
-          variant: "destructive",
         });
         fetchProgramOfficers(); // Refresh the list
       } else {
-        throw new Error(data.error || "Failed to delete program officer");
+        throw new Error(data.error || data.message || "Failed to delete program officer");
       }
     } catch (error) {
-      console.error("Delete error:", error);
       if (error.message.includes("Failed to fetch")) {
         toast({
           title: "Server Error",
@@ -459,7 +490,7 @@ const ProgramOfficers = () => {
           variant: "destructive"
         });
       } else {
-    toast({
+        toast({
           title: "Error",
           description: error.message,
           variant: "destructive"
@@ -480,14 +511,22 @@ const ProgramOfficers = () => {
     if (userRole === "pc" || userRole === "program coordinator") {
       if (selectedInstitute !== "all" && selectedDepartment !== "all") {
         // Both selected: AND
-        matchesInstitute = officer.institute_id && officer.institute_id.toString() === selectedInstitute;
-        matchesDepartment = officer.department_id && officer.department_id.toString() === selectedDepartment;
+        matchesInstitute = officer.institute_name && officer.institute_name.toLowerCase().includes(
+          institutes.find(inst => inst.id.toString() === selectedInstitute)?.name.toLowerCase() || ""
+        );
+        matchesDepartment = officer.department_name && officer.department_name.toLowerCase().includes(
+          departments.find(dept => dept.id.toString() === selectedDepartment)?.name.toLowerCase() || ""
+        );
       } else if (selectedInstitute !== "all") {
         // Only institute selected
-        matchesInstitute = officer.institute_id && officer.institute_id.toString() === selectedInstitute;
+        const selectedInstituteName = institutes.find(inst => inst.id.toString() === selectedInstitute)?.name;
+        matchesInstitute = officer.institute_name && selectedInstituteName && 
+          officer.institute_name.toLowerCase().includes(selectedInstituteName.toLowerCase());
       } else if (selectedDepartment !== "all") {
         // Only department selected
-        matchesDepartment = officer.department_id && officer.department_id.toString() === selectedDepartment;
+        const selectedDepartmentName = departments.find(dept => dept.id.toString() === selectedDepartment)?.name;
+        matchesDepartment = officer.department_name && selectedDepartmentName && 
+          officer.department_name.toLowerCase().includes(selectedDepartmentName.toLowerCase());
       }
     }
     
@@ -546,7 +585,7 @@ const ProgramOfficers = () => {
               <DialogHeader>
                   <DialogTitle>Add New Program Officer</DialogTitle>
                   <DialogDescription>
-                    Add a new program officer to the NSS team.
+                    Create a new Program Officer account. The officer will receive login credentials via email.
                   </DialogDescription>
               </DialogHeader>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
@@ -721,7 +760,7 @@ const ProgramOfficers = () => {
                 <Label htmlFor="edit-institute">Institute</Label>
                 <Input
                   id="edit-institute"
-                  value={newOfficer.institute_name || ""}
+                  value={institutes.find(inst => inst.id.toString() === newOfficer.institute)?.name || newOfficer.institute_name || ''}
                   readOnly
                   disabled
                   className="bg-gray-100"
@@ -731,7 +770,7 @@ const ProgramOfficers = () => {
                 <Label htmlFor="edit-department">Department</Label>
                 <Input
                   id="edit-department"
-                  value={newOfficer.department_name || ""}
+                  value={departments.find(dep => dep.id.toString() === newOfficer.department)?.name || newOfficer.department_name || ''}
                   readOnly
                   disabled
                   className="bg-gray-100"

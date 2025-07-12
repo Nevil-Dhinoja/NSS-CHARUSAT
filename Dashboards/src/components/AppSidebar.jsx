@@ -58,6 +58,7 @@ export default function AppSidebar({ userRole, userName, userEmail }) {
     if (userRole === "program coordinator") mappedRole = "pc";
     else if (userRole === "program officer") mappedRole = "po";
     else if (userRole === "student coordinator") mappedRole = "sc";
+    else if (userRole === "head student coordinator") mappedRole = "hsc";
     
 
 
@@ -139,6 +140,16 @@ export default function AppSidebar({ userRole, userName, userEmail }) {
           title: "Reports",
           url: "/reports",
           icon: FileText,
+        },
+        ...commonItems.slice(1), // Profile, Settings
+      ];
+    } else if (mappedRole === "hsc") {
+      return [
+        ...commonItems.slice(0, 1), // Dashboard
+        {
+          title: "Student Leaders",
+          url: "/student-leaders",
+          icon: Users,
         },
         ...commonItems.slice(1), // Profile, Settings
       ];
